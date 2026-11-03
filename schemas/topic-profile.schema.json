@@ -1,0 +1,84 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://review-harness.local/schemas/topic-profile.schema.json",
+  "title": "TopicProfile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "original_request",
+    "topic",
+    "display_labels",
+    "boundaries",
+    "time_windows",
+    "queries",
+    "inclusion_criteria",
+    "exclusion_criteria"
+  ],
+  "properties": {
+    "schema_version": { "const": "0.1.0" },
+    "original_request": { "type": "string", "minLength": 1 },
+    "topic": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["canonical_zh", "canonical_en", "core_objects", "methods", "applications"],
+      "properties": {
+        "canonical_zh": { "type": "string", "minLength": 1 },
+        "canonical_en": { "type": "string", "minLength": 1 },
+        "core_objects": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+        "methods": { "type": "array", "items": { "type": "string" } },
+        "applications": { "type": "array", "items": { "type": "string" } },
+        "synonyms": { "type": "array", "items": { "type": "string" }, "default": [] }
+      }
+    },
+    "display_labels": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["exact_research_label", "parent_research_label"],
+      "properties": {
+        "exact_research_label": { "type": "string", "minLength": 5 },
+        "parent_research_label": { "type": "string", "minLength": 5 }
+      }
+    },
+    "boundaries": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["direct", "technical", "excluded"],
+      "properties": {
+        "direct": { "type": "string", "minLength": 1 },
+        "technical": { "type": "string", "minLength": 1 },
+        "excluded": { "type": "string", "minLength": 1 }
+      }
+    },
+    "time_windows": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policy", "system_date_used", "publication_from", "publication_to"],
+      "properties": {
+        "policy": { "const": "rolling_two_years_from_system_date" },
+        "system_date_used": { "type": "string", "format": "date" },
+        "publication_from": { "type": "string", "format": "date" },
+        "publication_to": { "type": "string", "format": "date" }
+      }
+    },
+    "queries": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 6,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "scope", "provider", "query"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9][a-z0-9_-]*$" },
+          "scope": { "enum": ["direct", "technical"] },
+          "provider": { "const": "openalex" },
+          "query": { "type": "string", "minLength": 1 },
+          "notes": { "type": "string" }
+        }
+      }
+    },
+    "inclusion_criteria": { "type": "array", "items": { "type": "string", "minLength": 1 }, "minItems": 1 },
+    "exclusion_criteria": { "type": "array", "items": { "type": "string", "minLength": 1 }, "minItems": 1 }
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://review-harness.local/schemas/trend-claims.schema.json",
+  "title": "Module02TrendClaims",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "module02_run_id", "trend_claims"],
+  "properties": {
+    "schema_version": { "const": "0.1.0" },
+    "module02_run_id": { "type": "string", "minLength": 1 },
+    "trend_claims": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["trend_id", "canonical_label", "description", "source_review_ids", "source_statements", "scope_note"],
+        "properties": {
+          "trend_id": { "type": "string", "pattern": "^trend_[a-z0-9_-]+$" },
+          "canonical_label": { "type": "string", "minLength": 1 },
+          "description": { "type": "string", "minLength": 1 },
+          "source_review_ids": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+          "source_statements": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+          "scope_note": { "type": ["string", "null"] }
+        }
+      }
+    }
+  }
+}

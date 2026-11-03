@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://review-harness.local/schemas/perspective-branches.schema.json",
+  "title": "Module02PerspectiveBranchMappings",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "module02_run_id", "branches"],
+  "properties": {
+    "schema_version": { "const": "0.1.0" },
+    "module02_run_id": { "type": "string", "minLength": 1 },
+    "branches": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["rank", "session_id"],
+        "properties": {
+          "rank": { "type": "integer", "minimum": 1, "maximum": 5 },
+          "session_id": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

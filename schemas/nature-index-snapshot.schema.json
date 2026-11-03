@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://review-harness.local/schemas/nature-index-snapshot.schema.json",
+  "title": "NatureIndexSnapshot",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "source_url", "retrieved_at", "edition", "content_sha256", "stated_journal_count", "stated_other_venue_count", "publications"],
+  "properties": {
+    "schema_version": { "const": "0.1.0" },
+    "source_url": { "type": "string", "pattern": "^https://www\\.nature\\.com/nature-index/" },
+    "retrieved_at": { "type": "string", "format": "date-time" },
+    "edition": { "type": ["string", "null"] },
+    "content_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "stated_journal_count": { "type": "integer", "minimum": 0 },
+    "stated_other_venue_count": { "type": "integer", "minimum": 0 },
+    "publications": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["canonical_name", "publication_type"],
+        "properties": {
+          "canonical_name": { "type": "string", "minLength": 1 },
+          "publication_type": { "enum": ["journal", "conference_proceeding"] },
+          "issn": { "type": ["string", "null"] },
+          "eissn": { "type": ["string", "null"] },
+          "restriction_note": { "type": ["string", "null"] }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,62 @@
+{
+  "schema_version": "0.1.0",
+  "original_request": "围绕紫外微型计算光谱仪写一篇文献综述",
+  "topic": {
+    "canonical_zh": "紫外微型计算光谱仪",
+    "canonical_en": "ultraviolet miniature computational spectrometer",
+    "core_objects": ["ultraviolet miniature spectrometer"],
+    "methods": ["computational spectral reconstruction", "optical spectral encoding"],
+    "applications": ["portable ultraviolet spectroscopy"],
+    "synonyms": ["UV computational spectrometer", "miniature UV spectrometer"]
+  },
+  "display_labels": {
+    "exact_research_label": "紫外微型计算光谱仪研究论文",
+    "parent_research_label": "微型计算光谱仪研究论文"
+  },
+  "boundaries": {
+    "direct": "Original research that demonstrates a miniaturized ultraviolet spectrometer and computationally reconstructs spectra from encoded measurements.",
+    "technical": "Original research on miniaturized computational spectrometers using a transferable encoding or reconstruction route, without requiring ultraviolet operation.",
+    "excluded": "Reviews, perspectives, editorials, conventional non-computational UV instruments, detector-only papers, and electronic-structure computational spectroscopy."
+  },
+  "time_windows": {
+    "policy": "rolling_two_years_from_system_date",
+    "system_date_used": "2026-11-03",
+    "publication_from": "2024-11-03",
+    "publication_to": "2026-11-03"
+  },
+  "queries": [
+    {
+      "id": "direct-en-01",
+      "scope": "direct",
+      "provider": "openalex",
+      "query": "ultraviolet computational spectrometer"
+    },
+    {
+      "id": "direct-en-02",
+      "scope": "direct",
+      "provider": "openalex",
+      "query": "ultraviolet miniaturized spectrometer spectral reconstruction"
+    },
+    {
+      "id": "technical-en-01",
+      "scope": "technical",
+      "provider": "openalex",
+      "query": "miniaturized computational spectrometer"
+    },
+    {
+      "id": "technical-en-02",
+      "scope": "technical",
+      "provider": "openalex",
+      "query": "on-chip computational spectrometer"
+    }
+  ],
+  "inclusion_criteria": [
+    "Original research published inside the system-derived two-year window.",
+    "Title or abstract supports the assigned topic level."
+  ],
+  "exclusion_criteria": [
+    "Review or other non-research publication type.",
+    "No meaningful relationship to the exact topic or parent technology.",
+    "Duplicate version of an already retained work."
+  ]
+}

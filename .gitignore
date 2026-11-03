@@ -1,0 +1,30 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+.mypy_cache/
+.coverage
+.kiro/settings/*.lock
+
+# All run state and generated deliverables are disposable.
+runtime/**
+!runtime/README.md
+outputs/**
+!outputs/README.md
+
+# Local credentials
+OPENALEX_API_KEY.txt
+.env
+.env.*
+!.env.example
+
+# Root-level transient Agent exchange files
+/*-current.json
+/topic_*.json
+/topic-*.json
+
+# Build artifacts
+dist/
+build/
+*.whl

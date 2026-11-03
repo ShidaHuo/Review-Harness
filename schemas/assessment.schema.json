@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://review-harness.local/schemas/assessment.schema.json",
+  "title": "TopicAssessment",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "run_id",
+    "assessed_at",
+    "nature_index_reference",
+    "dimensions",
+    "research_direction_value",
+    "review_value",
+    "recommendation",
+    "limitations"
+  ],
+  "properties": {
+    "schema_version": { "const": "0.1.0" },
+    "run_id": { "type": "string", "minLength": 1 },
+    "assessed_at": { "type": "string", "format": "date-time" },
+    "nature_index_reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["status", "source_url", "retrieved_at", "edition", "content_sha256", "stated_journal_count", "stated_other_venue_count"],
+      "properties": {
+        "status": { "enum": ["verified", "unavailable"] },
+        "source_url": { "type": ["string", "null"], "pattern": "^https://www\\.nature\\.com/nature-index/" },
+        "retrieved_at": { "type": ["string", "null"], "format": "date-time" },
+        "edition": { "type": ["string", "null"] },
+        "content_sha256": { "type": ["string", "null"], "pattern": "^[a-f0-9]{64}$" },
+        "stated_journal_count": { "type": ["integer", "null"], "minimum": 0 },
+        "stated_other_venue_count": { "type": ["integer", "null"], "minimum": 0 },
+        "article_restrictions": { "type": "array", "items": { "type": "string" } },
+        "match_coverage": { "type": ["number", "null"], "minimum": 0, "maximum": 1 }
+      }
+    },
+    "counts": {
+      "type": "object",
+      "additionalProperties": { "type": "integer", "minimum": 0 }
+    },
+    "dimensions": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["evidence_sufficiency", "activity", "visibility", "coherence", "contribution_opportunity", "execution_feasibility"],
+      "properties": {
+        "evidence_sufficiency": { "$ref": "#/$defs/dimension" },
+        "activity": { "$ref": "#/$defs/dimension" },
+        "visibility": { "$ref": "#/$defs/dimension" },
+        "coherence": { "$ref": "#/$defs/dimension" },
+        "contribution_opportunity": { "$ref": "#/$defs/dimension" },
+        "execution_feasibility": { "$ref": "#/$defs/dimension" }
+      }
+    },
+    "research_direction_value": { "$ref": "#/$defs/judgment" },
+    "review_value": { "$ref": "#/$defs/judgment" },
+    "recommendation": { "enum": ["recommended", "reframe_required", "insufficient_evidence", "not_recommended"] },
+    "decisive_reasons": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "required_reframe": { "type": ["string", "null"] },
+    "limitations": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+    "source_dates": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    }
+  },
+  "$defs": {
+    "dimension": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["score", "confidence", "evidence", "limitations"],
+      "properties": {
+        "score": { "type": "integer", "minimum": 0, "maximum": 3 },
+        "confidence": { "enum": ["low", "medium", "high"] },
+        "evidence": { "type": "array", "items": { "type": "string", "minLength": 1 } },
+        "limitations": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      }
+    },
+    "judgment": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["level", "confidence", "rationale"],
+      "properties": {
+        "level": { "enum": ["low", "medium", "high", "unknown"] },
+        "confidence": { "enum": ["low", "medium", "high"] },
+        "rationale": { "type": "array", "items": { "type": "string", "minLength": 1 } }
+      }
+    }
+  }
+}

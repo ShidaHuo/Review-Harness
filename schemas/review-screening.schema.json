@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://review-harness.local/schemas/review-screening.schema.json",
+  "title": "Module02ReviewScreeningBatch",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "module02_run_id", "reviews"],
+  "properties": {
+    "schema_version": { "const": "0.2.0" },
+    "module02_run_id": { "type": "string", "minLength": 1 },
+    "reviews": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["review_id", "match_level", "relevance_score", "matched_keywords", "confidence", "reason"],
+        "properties": {
+          "review_id": { "type": "string", "minLength": 1 },
+          "match_level": { "enum": ["exact", "adjacent", "excluded"] },
+          "relevance_score": { "type": "number", "minimum": 0, "maximum": 1 },
+          "matched_keywords": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 },
+            "uniqueItems": true
+          },
+          "confidence": { "enum": ["low", "medium", "high"] },
+          "reason": { "type": "string", "minLength": 1 }
+        }
+      }
+    }
+  }
+}

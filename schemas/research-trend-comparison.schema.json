@@ -1,0 +1,29 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://review-harness.local/schemas/research-trend-comparison.schema.json",
+  "title": "Module02ResearchTrendComparisonBatch",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "module02_run_id", "papers"],
+  "properties": {
+    "schema_version": { "const": "0.1.0" },
+    "module02_run_id": { "type": "string", "minLength": 1 },
+    "papers": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["paper_id", "category", "matched_review_ids", "matched_trend_claim_ids", "matched_future_trends", "rationale", "confidence"],
+        "properties": {
+          "paper_id": { "type": "string", "minLength": 1 },
+          "category": { "enum": ["trend_consistent", "trend_extension", "new_direction", "excluded"] },
+          "matched_review_ids": { "type": "array", "items": { "type": "string" } },
+          "matched_trend_claim_ids": { "type": "array", "items": { "type": "string" } },
+          "matched_future_trends": { "type": "array", "items": { "type": "string" } },
+          "rationale": { "type": "string", "minLength": 1 },
+          "confidence": { "enum": ["low", "medium", "high"] }
+        }
+      }
+    }
+  }
+}

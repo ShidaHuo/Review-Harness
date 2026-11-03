@@ -1,0 +1,75 @@
+{
+  "schema_version": "0.1.0",
+  "original_request": "围绕反双极性场效应晶体管写一篇综述",
+  "topic": {
+    "canonical_zh": "反双极性场效应晶体管",
+    "canonical_en": "anti-ambipolar field-effect transistor",
+    "core_objects": ["anti-ambipolar transistor", "anti-ambipolar heterostructure"],
+    "methods": ["double-channel heterostructure", "gate-tunable band alignment", "anti-ambipolar transfer curve"],
+    "applications": ["multivalued logic", "reconfigurable logic", "neuromorphic computing", "photodetection"],
+    "synonyms": ["antiambipolar transistor", "anti-ambipolar FET", "AAT"]
+  },
+  "display_labels": {
+    "exact_research_label": "反双极性场效应晶体管研究论文",
+    "parent_research_label": "双极性场效应晶体管研究论文"
+  },
+  "boundaries": {
+    "direct": "Original research reporting a device whose transfer characteristic shows a non-monotonic anti-ambipolar (peak/valley) response arising from anti-ambipolar transport in a heterostructure or composite channel.",
+    "technical": "Original research on ambipolar field-effect transistors in which both electron and hole transport can be modulated by the gate, including the heterostructure channel platform that hosts anti-ambipolar devices.",
+    "excluded": "Reviews, perspectives, commentaries, organic-only ambipolar small-molecule studies without a field-effect transistor device, single-carrier unipolar transistors, and non-transistor anti-ambipolar chemistry."
+  },
+  "time_windows": {
+    "policy": "rolling_two_years_from_system_date",
+    "system_date_used": "2026-11-03",
+    "publication_from": "2024-11-03",
+    "publication_to": "2026-11-03"
+  },
+  "queries": [
+    {
+      "id": "direct-en-01",
+      "scope": "direct",
+      "provider": "openalex",
+      "query": "anti-ambipolar transistor"
+    },
+    {
+      "id": "direct-en-02",
+      "scope": "direct",
+      "provider": "openalex",
+      "query": "anti-ambipolar field-effect transistor"
+    },
+    {
+      "id": "direct-en-03",
+      "scope": "direct",
+      "provider": "openalex",
+      "query": "antiambipolar heterostructure transistor"
+    },
+    {
+      "id": "technical-en-01",
+      "scope": "technical",
+      "provider": "openalex",
+      "query": "ambipolar field-effect transistor"
+    },
+    {
+      "id": "technical-en-02",
+      "scope": "technical",
+      "provider": "openalex",
+      "query": "ambipolar van der Waals heterostructure transistor"
+    },
+    {
+      "id": "technical-en-03",
+      "scope": "technical",
+      "provider": "openalex",
+      "query": "ambipolar two-dimensional transistor"
+    }
+  ],
+  "inclusion_criteria": [
+    "Original research inside the system-derived two-year window.",
+    "Title or abstract supports the assigned topic level.",
+    "A field-effect transistor device is reported."
+  ],
+  "exclusion_criteria": [
+    "Review or other non-research publication type.",
+    "No transistor device or no gate-modulated ambipolar transport.",
+    "Duplicate scholarly version."
+  ]
+}

@@ -1,0 +1,184 @@
+# Nature Index publication directory bundled for deterministic local use
+# Source: https://www.nature.com/nature-index/faq (FAQ item 18)
+# Snapshot date: 2026-11-03
+# Scope: current 12-month window stated by Nature Index
+# Stated total: 177 science journals and conference proceedings
+# Columns: publication_name<TAB>publication_type<TAB>current_window_article_count<TAB>restriction_note
+ACS Nano	journal	2711
+Academy of Management Journal	journal	50
+Acta Biomaterialia	journal	565
+Advanced Functional Materials	journal	5616
+Advanced Materials	journal	3204
+American Economic Review	journal	121
+American Journal of Clinical Nutrition	journal	254
+American Journal of Epidemiology	journal	110
+American Journal of Human Genetics	journal	155
+American Journal of Obstetrics and Gynecology	journal	168
+American Journal of Pathology	journal	127
+American Journal of Political Science	journal	140
+American Journal of Respiratory and Critical Care Medicine	journal	135
+American Journal of Sociology	journal	13
+American Political Science Review	journal	67
+American Sociological Review	journal	36
+Analytical Chemistry	journal	3363
+Anesthesiology	journal	110
+Angewandte Chemie International Edition	journal	5199
+Annals of Emergency Medicine	journal	67
+Annals of Family Medicine	journal	51
+Annals of Internal Medicine	journal	77
+Annals of Mathematics	journal	27
+Annals of Neurology	journal	205
+Annals of Surgery	journal	114
+Annals of the Rheumatic Diseases	journal	168
+Applied Energy	journal	1752
+Applied Physics Letters	journal	2831
+Archives of Physical Medicine and Rehabilitation	journal	283
+Arthritis & Rheumatology	journal	225
+Astronomy & Astrophysics	journal	254
+Blood	journal	159
+Brain	journal	259
+British Journal of Surgery	journal	88
+Cancer Cell	journal	97
+Cancer Research	journal	282
+Cell	journal	388
+Cell Host & Microbe	journal	127
+Cell Metabolism	journal	115
+Cell Stem Cell	journal	96
+Chemical Communications	journal	2804
+Chemical Science	journal	1822
+Chest	journal	191
+Circulation	journal	175
+Cities	journal	1086
+Clinical Infectious Diseases	journal	349
+Computers & Education	journal	227
+Computers in Human Behavior	journal	323
+Critical Care Medicine	journal	181
+Current Biology	journal	516
+Developmental Cell	journal	119
+Diabetes Care	journal	168
+Earth and Planetary Science Letters	journal	444
+Ecology Letters	journal	182
+Econometrica	journal	59
+Energy	journal	4750
+Energy & Environmental Science	journal	441
+Environmental Health Perspectives	journal	34
+Environmental Pollution	journal	1684
+Environmental Research	journal	2349
+Environmental Science and Technology	journal	2539
+European Heart Journal	journal	199
+European Physical Journal C	journal	1401
+European Urology	journal	33
+Gastroenterology	journal	74
+Genes & Development	journal	62
+Genome Research	journal	180
+Geochimica et Cosmochimica Acta	journal	553
+Geology	journal	219
+Geophysical Research Letters	journal	2082
+Gut	journal	179
+Hepatology	journal	102
+Higher Education	journal	320
+Human Reproduction	journal	161
+IEEE/RSJ International Conference on Intelligent Robots and Systems (IROS)	conference_proceeding	1958
+Immunity	journal	154
+Inorganic Chemistry	journal	2652
+International Journal of Epidemiology	journal	113
+International Journal of Obesity	journal	230
+Inventiones mathematicae	journal	86
+JAMA Internal Medicine	journal	98
+JAMA Pediatrics	journal	95
+JAMA Psychiatry	journal	78
+JAMA Surgery	journal	106
+JAMA: The Journal of the American Medical Association	journal	144
+Journal of Biological Chemistry	journal	1078
+Journal of Bone and Joint Surgery-American Volume	journal	164
+Journal of Cell Biology	journal	209
+Journal of Cleaner Production	journal	2936
+Journal of Clinical Endocrinology & Metabolism	journal	388
+Journal of Clinical Investigation	journal	466
+Journal of Clinical Oncology	journal	162
+Journal of Experimental Medicine	journal	141
+Journal of Financial Economics	journal	139
+Journal of Geophysical Research: Atmospheres	journal	997
+Journal of Geophysical Research: Solid Earth	journal	618
+Journal of Hepatology	journal	108
+Journal of High Energy Physics	journal	2752
+Journal of Infectious Diseases	journal	480
+Journal of Neuroscience	journal	613
+Journal of Physiology	journal	358
+Journal of Political Economy	journal	80
+Journal of Thoracic and Cardiovascular Surgery	journal	228
+Journal of the American Academy of Child and Adolescent Psychiatry	journal	23
+Journal of the American Academy of Dermatology	journal	114
+Journal of the American Chemical Society	journal	5155
+Journal of the American College of Cardiology	journal	204
+Journal of the American Geriatrics Society	journal	228
+Journal of the American Society of Nephrology	journal	96
+Journal of the National Cancer Institute	journal	236
+Journal of the Royal Statistical Society Series B: Statistical Methodology	journal	81
+Kidney International	journal	96
+Macromolecules	journal	1281
+Management Science	journal	348
+Molecular Cell	journal	262
+Molecular Psychiatry	journal	482
+Monthly Notices of the Royal Astronomical Society: Letters	journal	46	Only Letters are included; from January 2026 they are published within Monthly Notices of the Royal Astronomical Society.
+Nano Letters	journal	1943
+Nature	journal	1284
+Nature Biotechnology	journal	152
+Nature Cell Biology	journal	156
+Nature Chemical Biology	journal	151
+Nature Chemistry	journal	218
+Nature Climate Change	journal	130
+Nature Communications	journal	13621
+Nature Energy	journal	118
+Nature Genetics	journal	217
+Nature Geoscience	journal	175
+Nature Human Behaviour	journal	121
+Nature Immunology	journal	166
+Nature Materials	journal	209
+Nature Medicine	journal	331
+Nature Methods	journal	187
+Nature Nanotechnology	journal	140
+Nature Neuroscience	journal	225
+Nature Photonics	journal	149
+Nature Physics	journal	235
+Nature Structural & Molecular Biology	journal	137
+Nature Sustainability	journal	131
+Neuron	journal	255
+Ophthalmology	journal	99
+Organic Letters	journal	2740
+PLOS Biology	journal	426
+PLOS Genetics	journal	352
+PLOS Medicine	journal	179
+Physical Review A	journal	243
+Physical Review B	journal	1011
+Physical Review D	journal	331
+Physical Review Letters	journal	2904
+Physical Review X	journal	269
+Plant Biotechnology Journal	journal	400
+Proceedings of the National Academy of Sciences of the United States of America	journal	3821
+Proceedings of the Royal Society B	journal	586
+Radiology	journal	191
+Science	journal	789
+Science Advances	journal	3009
+Science Translational Medicine	journal	292
+Sustainable Cities and Society	journal	1016
+The Astrophysical Journal Letters	journal	971
+The BMJ	journal	107
+The EMBO Journal	journal	304
+The ISME Journal: Multidisciplinary Journal of Microbial Ecology	journal	274
+The Journal of Allergy and Clinical Immunology	journal	156
+The Journal of Physical Chemistry Letters	journal	1707
+The Lancet	journal	153
+The Lancet Diabetes & Endocrinology	journal	46
+The Lancet Global Health	journal	108
+The Lancet Neurology	journal	26
+The Lancet Oncology	journal	100
+The Lancet Psychiatry	journal	44
+The New England Journal of Medicine	journal	205
+The Plant Cell	journal	185
+The Quarterly Journal of Economics	journal	77
+The Review of Economic Studies	journal	205
+Thorax	journal	104
+Water Research	journal	1998
+World Development	journal	272
+# Note: Some listed journals contribute only selected article sections. Venue membership alone does not prove that every article is counted by Nature Index.

@@ -1,0 +1,35 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://review-harness.local/schemas/perspective-selection.schema.json",
+  "title": "Module02PerspectiveSelection",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["module02_run_id", "question", "options", "module03_status", "message"],
+  "properties": {
+    "module02_run_id": { "type": "string", "minLength": 1 },
+    "question": { "type": "string", "minLength": 1 },
+    "options": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["rank", "label", "branch_status", "session_id", "module03_run_id", "outline_status", "outline_version"],
+        "properties": {
+          "rank": { "type": "integer", "minimum": 1, "maximum": 5 },
+          "label": { "type": "string", "minLength": 1 },
+          "branch_status": { "type": "string", "minLength": 1 },
+          "session_id": { "type": ["string", "null"] },
+          "module03_run_id": { "type": ["string", "null"] },
+          "outline_status": { "type": ["string", "null"] },
+          "outline_version": { "type": ["integer", "null"], "minimum": 0 }
+        }
+      }
+    },
+    "selected_rank": { "type": ["integer", "null"], "minimum": 1, "maximum": 5 },
+    "module03_run_id": { "type": ["string", "null"] },
+    "module03_status": { "enum": ["outline_available", "outline_ready"] },
+    "message": { "type": "string", "minLength": 1 }
+  }
+}

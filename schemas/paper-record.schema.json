@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://review-harness.local/schemas/paper-record.schema.json",
+  "title": "PaperRecord",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "paper_id",
+    "title",
+    "normalized_title",
+    "publication_year",
+    "work_type",
+    "source_provider",
+    "retrieved_at"
+  ],
+  "properties": {
+    "schema_version": { "const": "0.1.0" },
+    "paper_id": { "type": "string", "minLength": 1 },
+    "openalex_id": { "type": ["string", "null"] },
+    "doi": { "type": ["string", "null"] },
+    "title": { "type": "string", "minLength": 1 },
+    "normalized_title": { "type": "string", "minLength": 1 },
+    "abstract": { "type": ["string", "null"] },
+    "publication_date": { "type": ["string", "null"], "format": "date" },
+    "publication_year": { "type": "integer", "minimum": 1600, "maximum": 2200 },
+    "work_type": { "type": "string", "minLength": 1 },
+    "source_name": { "type": ["string", "null"] },
+    "issn_l": { "type": ["string", "null"] },
+    "cited_by_count": { "type": ["integer", "null"], "minimum": 0 },
+    "source_provider": { "type": "string", "minLength": 1 },
+    "retrieved_at": { "type": "string", "format": "date-time" },
+    "relevance": {
+      "type": ["object", "null"],
+      "additionalProperties": false,
+      "required": ["label", "confidence", "reason", "actor"],
+      "properties": {
+        "label": { "enum": ["direct", "technical", "excluded", "uncertain"] },
+        "confidence": { "enum": ["low", "medium", "high"] },
+        "reason": { "type": "string", "minLength": 1 },
+        "actor": { "type": "string", "minLength": 1 },
+        "classified_at": { "type": "string", "format": "date-time" }
+      }
+    }
+  }
+}

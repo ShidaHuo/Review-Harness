@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://review-harness.local/schemas/review-analysis.schema.json",
+  "title": "Module02ReviewAnalysisBatch",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "module02_run_id", "reviews"],
+  "properties": {
+    "schema_version": { "const": "0.2.0" },
+    "module02_run_id": { "type": "string", "minLength": 1 },
+    "reviews": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["review_id", "review_match_level", "nature_index_status", "fulltext_access_status", "evidence_level", "review_reason", "structure", "future_trends", "source_urls", "limitations"],
+        "properties": {
+          "review_id": { "type": "string", "minLength": 1 },
+          "review_match_level": { "enum": ["exact", "adjacent"] },
+          "nature_index_status": { "enum": ["yes", "no", "unverified"] },
+          "fulltext_access_status": {
+            "enum": ["oa_downloaded", "institutional_downloaded", "login_required", "institution_not_subscribed", "license_restricted", "download_failed", "skipped"]
+          },
+          "evidence_level": { "enum": ["full_text", "abstract_only", "metadata_only"] },
+          "review_reason": { "type": ["string", "null"] },
+          "structure": { "type": "array", "items": { "type": "string" } },
+          "future_trends": { "type": "array", "items": { "type": "string" } },
+          "source_urls": { "type": "array", "items": { "type": "string", "format": "uri" } },
+          "limitations": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    }
+  }
+}

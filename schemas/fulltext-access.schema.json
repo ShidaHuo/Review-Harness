@@ -1,0 +1,38 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://review-harness.local/schemas/fulltext-access.schema.json",
+  "title": "Module02FullTextAccessBatch",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "module02_run_id", "reviews"],
+  "properties": {
+    "schema_version": { "const": "0.1.0" },
+    "module02_run_id": { "type": "string", "minLength": 1 },
+    "reviews": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["review_id", "status", "source_url", "pdf_path", "license", "note"],
+        "properties": {
+          "review_id": { "type": "string", "minLength": 1 },
+          "status": {
+            "enum": [
+              "oa_downloaded",
+              "institutional_downloaded",
+              "login_required",
+              "institution_not_subscribed",
+              "license_restricted",
+              "download_failed",
+              "skipped"
+            ]
+          },
+          "source_url": { "type": ["string", "null"], "format": "uri" },
+          "pdf_path": { "type": ["string", "null"] },
+          "license": { "type": ["string", "null"] },
+          "note": { "type": ["string", "null"] }
+        }
+      }
+    }
+  }
+}
