@@ -50,7 +50,7 @@ Clone the repository:
 
 ```bash
 git clone https://github.com/ShidaHuo/Review-Harness.git
-cd review-harness-mvp
+cd Review-Harness
 ```
 
 ### Windows
