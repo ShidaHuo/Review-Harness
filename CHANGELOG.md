@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.8.1 - 2026-11-03
+
+- Added `setup-codex.cmd` for double-click Codex installation on Windows.
+- Added a masked local OpenAlex key prompt that never sends the key to agent chat.
+- Preserved existing key files without reading or overwriting them.
+
 ## 0.8.0 - 2026-11-03
 
 Initial public MVP candidate.

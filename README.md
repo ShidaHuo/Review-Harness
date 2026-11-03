@@ -53,7 +53,16 @@ git clone https://github.com/ShidaHuo/Review-Harness.git
 cd Review-Harness
 ```
 
-### Windows
+### Windows: one-click Codex setup
+
+1. Download or clone this repository.
+2. Double-click `setup-codex.cmd`.
+3. If no key is configured, paste your own OpenAlex key into the masked local terminal prompt.
+4. Open the `Review-Harness` folder in Codex and enter a scientific review request.
+
+The one-click installer never asks for the key in Codex chat and never overwrites an existing key file.
+
+Manual runtime installation remains available:
 
 ```powershell
 .\install.ps1 -Runtime codex

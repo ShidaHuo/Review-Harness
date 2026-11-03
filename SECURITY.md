@@ -11,7 +11,7 @@ Supported credential resolution order:
 3. the file named by `OPENALEX_API_KEY_FILE`;
 4. project-root `OPENALEX_API_KEY.txt`.
 
-`OPENALEX_API_KEY.txt`, `.env`, runtime databases, downloaded PDFs, and generated outputs are ignored by Git. The client sends the key in the `Authorization` header and never puts it in a URL.
+`OPENALEX_API_KEY.txt`, `.env`, runtime databases, downloaded PDFs, and generated outputs are ignored by Git. The Codex one-click installer accepts a key only through a masked local PowerShell prompt and writes it directly to the ignored key file. The client sends the key in the `Authorization` header and never puts it in a URL.
 
 Institution usernames, passwords, MFA codes, SSO tokens, VPN credentials, and browser cookies must never enter chat, project files, logs, or SQLite. Users authenticate only on official institution pages. A user running Codex or another host without an authenticated browser may manually download legally accessible PDFs and place them in the local runtime directory.
 
