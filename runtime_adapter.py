@@ -141,7 +141,7 @@ def policy_for(runtime: RuntimeName, project_root: Path, confidence: str, eviden
         "selection_terminal_message": "Start or resume the selected Module 03 outline run.",
         "module01_completion_gate": "Repeat review-harness module01-next after every persisted step until the complete report decision.",
         "module02_completion_gate": "Repeat review-harness module02-next after every persisted step until perspective selection.",
-        "strict_boundary": "Module 01/02 do not draft; Module 03 designs an outline only; Module 04 exports the approved Markdown and ends the MVP.",
+        "strict_boundary": "Module 01/02 do not draft; Module 03 designs the outline; Module 04 writes the approved approximately 15,000-character Markdown review and ends the MVP.",
     }
     if runtime == RuntimeName.DEEPSEEK_HARNESS:
         return RuntimePolicy(

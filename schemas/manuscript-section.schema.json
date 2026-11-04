@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://review-harness.local/schemas/manuscript-section.schema.json",
+  "title": "Module04ManuscriptSection",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "module04_run_id",
+    "section_key",
+    "markdown",
+    "cited_evidence_ids",
+    "figure_placeholders",
+    "table_placeholders"
+  ],
+  "properties": {
+    "schema_version": { "const": "0.1.0" },
+    "module04_run_id": { "type": "string", "minLength": 1 },
+    "section_key": { "type": "string", "minLength": 1 },
+    "markdown": { "type": "string", "minLength": 1 },
+    "cited_evidence_ids": {
+      "type": "array",
+      "items": { "type": "string", "minLength": 1 },
+      "uniqueItems": true
+    },
+    "figure_placeholders": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/placeholder" }
+    },
+    "table_placeholders": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/placeholder" }
+    }
+  },
+  "$defs": {
+    "placeholder": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["title", "purpose", "content_spec", "source_evidence_ids"],
+      "properties": {
+        "title": { "type": "string", "minLength": 1 },
+        "purpose": { "type": "string", "minLength": 1 },
+        "content_spec": { "type": "string", "minLength": 1 },
+        "source_evidence_ids": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        }
+      }
+    }
+  }
+}

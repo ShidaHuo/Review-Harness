@@ -16,7 +16,14 @@ from .module03_storage import (
     save_outline_version,
     start_module03_outline,
 )
-from .module04_service import export_frozen_outline, module04_export_for_run
+from .module04_service import (
+    assemble_manuscript,
+    get_module04_run,
+    module04_export_for_run,
+    module04_next_action,
+    save_manuscript_section,
+    start_module04_manuscript,
+)
 from .module02_service import run_post_review_research_search, run_review_search
 from .module02_storage import (
     attach_perspective_sessions,
@@ -288,22 +295,37 @@ def build_parser() -> argparse.ArgumentParser:
     outline_feedback.add_argument("--module03-run-id", required=True)
     outline_feedback.add_argument("--decision", required=True, choices=["approved", "revise"])
     outline_feedback.add_argument("--feedback")
-    outline_feedback.add_argument(
-        "--final-output-directory", type=Path, default=DEFAULT_OUTPUTS / "final"
-    )
+    outline_feedback.add_argument("--target-characters", type=int, default=15000)
 
     render_module03 = subparsers.add_parser("render-outline", help="Render the latest Module 03 outline")
     render_module03.add_argument("--module03-run-id", required=True)
     render_module03.add_argument("--output-directory", type=Path, default=DEFAULT_OUTPUTS)
 
     run_module04 = subparsers.add_parser(
-        "run-module04", help="Export an approved outline to final Markdown and complete the MVP"
+        "run-module04", help="Start or resume a manuscript from an approved outline"
     )
     run_module04.add_argument("--module03-run-id", required=True)
-    run_module04.add_argument("--output-directory", type=Path, default=DEFAULT_OUTPUTS / "final")
+    run_module04.add_argument("--target-characters", type=int, default=15000)
 
-    module04_status = subparsers.add_parser("module04-status", help="Show the final outline export")
-    module04_status.add_argument("--module03-run-id", required=True)
+    module04_next = subparsers.add_parser(
+        "module04-next", help="Return the next mandatory manuscript-writing action"
+    )
+    module04_next.add_argument("--module04-run-id", required=True)
+
+    import_manuscript = subparsers.add_parser(
+        "import-manuscript-section", help="Persist one drafted manuscript section"
+    )
+    import_manuscript.add_argument("--module04-run-id", required=True)
+    import_manuscript.add_argument("--input", type=Path, required=True)
+
+    assemble_module04 = subparsers.add_parser(
+        "assemble-module04", help="Assemble validated sections into the final Markdown review"
+    )
+    assemble_module04.add_argument("--module04-run-id", required=True)
+    assemble_module04.add_argument("--output-directory", type=Path, default=DEFAULT_OUTPUTS / "final")
+
+    module04_status = subparsers.add_parser("module04-status", help="Show the manuscript-writing run")
+    module04_status.add_argument("--module04-run-id", required=True)
 
     return parser
 
@@ -526,25 +548,43 @@ def main(argv: list[str] | None = None) -> int:
                 args.feedback,
             )
             if args.decision == "approved":
-                result["module04"] = export_frozen_outline(
+                module04_run_id = start_module04_manuscript(
                     args.db,
                     args.module03_run_id,
-                    args.final_output_directory,
+                    args.target_characters,
                 )
-                result["task_status"] = "completed"
+                result["module04_run_id"] = module04_run_id
+                result["module04_next_action"] = module04_next_action(args.db, module04_run_id)
+                result["task_status"] = "module04_started"
             _print_json(result)
         elif args.command == "render-outline":
             path = render_outline(args.db, args.module03_run_id, args.output_directory)
             _print_json({"outline": str(path.resolve()), "status": "rendered"})
         elif args.command == "run-module04":
-            _print_json(export_frozen_outline(
-                args.db, args.module03_run_id, args.output_directory
+            module04_run_id = start_module04_manuscript(
+                args.db, args.module03_run_id, args.target_characters
+            )
+            _print_json({
+                "module04_run_id": module04_run_id,
+                "status": get_module04_run(args.db, module04_run_id)["status"],
+                "next_action": module04_next_action(args.db, module04_run_id),
+            })
+        elif args.command == "module04-next":
+            _print_json(module04_next_action(args.db, args.module04_run_id))
+        elif args.command == "import-manuscript-section":
+            payload = _json_file(args.input)
+            result = save_manuscript_section(args.db, args.module04_run_id, payload)
+            result["next_action"] = module04_next_action(args.db, args.module04_run_id)
+            _print_json(result)
+        elif args.command == "assemble-module04":
+            _print_json(assemble_manuscript(
+                args.db, args.module04_run_id, args.output_directory
             ))
         elif args.command == "module04-status":
-            _print_json({
-                "module03_run_id": args.module03_run_id,
-                "export": module04_export_for_run(args.db, args.module03_run_id),
-            })
+            run = get_module04_run(args.db, args.module04_run_id)
+            run["next_action"] = module04_next_action(args.db, args.module04_run_id)
+            run["export"] = module04_export_for_run(args.db, run["module03_run_id"])
+            _print_json(run)
         else:
             raise AssertionError(f"Unhandled command: {args.command}")
     except Exception as exc:

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.9.0 - 2026-11-04
+
+- Redefined Module 04 as section-batched Chinese review-manuscript writing after outline approval.
+- Added a 15,000-character target with a 13,500–16,500 validation gate.
+- Added validated internal citation markers and deterministic numbered references.
+- Added structured figure and table position markers with evidence provenance.
+- Added final manuscript assembly at `outputs/final/<module04_run_id>-review.md`.
+
 ## 0.8.1 - 2026-11-03
 
 - Added `setup-codex.cmd` for double-click Codex installation on Windows.

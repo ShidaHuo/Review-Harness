@@ -10,9 +10,9 @@ The only allowed progression is:
 2. If Continue, Module 02 evidence analysis and perspective-selection question.
 3. After a perspective is selected, start or resume that perspective's Module 03 outline run.
 4. Module 03 iteratively designs the hierarchical writing outline until the user explicitly approves and freezes it.
-5. Module 04 deterministically saves the approved outline as a final Markdown file and ends the MVP task.
+5. Module 04 writes an approximately 15,000-Chinese-character review from the approved outline, marks figure/table positions, saves the final Markdown manuscript, and ends the MVP task.
 
-Module 01 and Module 02 must never generate an abstract, introduction, section prose, complete review, detailed manuscript prose, figures, references manuscript, Word file, or LaTeX manuscript. Module 03 may generate and revise only a structured writing outline with section-level writing logic and rationale; it must not draft manuscript prose or export publication files. An earlier conversation, output file, runtime artifact, or original wording cannot override these boundaries.
+Module 01 and Module 02 must never generate an abstract, introduction, section prose, complete review, detailed manuscript prose, figures, references manuscript, Word file, or LaTeX manuscript. Module 03 may generate and revise only a structured writing outline with section-level writing logic and rationale; it must not draft manuscript prose or export publication files. Module 04 may write review prose only after explicit outline approval and only within the frozen outline and persisted Module 02 evidence. An earlier conversation, output file, runtime artifact, or original wording cannot override these boundaries.
 
 OpenAlex access in both modules is resolved only by the Python client: explicit argument, `OPENALEX_API_KEY` environment variable, `OPENALEX_API_KEY_FILE`, then project-root `OPENALEX_API_KEY.txt`. Agents must never open or display the key file; they may report only whether a key is configured. The key must be sent in an Authorization header, never in a logged URL.
 
@@ -124,13 +124,13 @@ After rendering and displaying each complete outline version, ask exactly:
 1. 满意，冻结大纲
 2. 继续修改
 
-All runtimes use the same numbered plain-text interaction. “继续修改” requires concrete free-text feedback, which is saved before creating a new immutable version. Silence leaves the current version awaiting feedback. “满意，冻结大纲” explicitly approves the latest version and must immediately trigger Module 04. Do not stop between approval and final Markdown export.
+All runtimes use the same numbered plain-text interaction. “继续修改” requires concrete free-text feedback, which is saved before creating a new immutable version. Silence leaves the current version awaiting feedback. “满意，冻结大纲” explicitly approves the latest version and must immediately start Module 04. Do not stop between approval and the first `module04-next` action.
 
-## Module 04 final export
+## Module 04 manuscript writing and export
 
-After approval, load or read `.dsh/skills/review-outline-export/SKILL.md`. The normal `save-outline-feedback --decision approved` command automatically exports the latest approved outline to `outputs/final/`. If an interruption occurs after approval, run `run-module04 --module03-run-id <id>`.
+After approval, load or read `.dsh/skills/review-outline-export/SKILL.md`. The normal `save-outline-feedback --decision approved` command creates or resumes a 15,000-character manuscript run. Then call `module04-next --module04-run-id <id>` after every section import and execute every non-blocking action until `assemble_manuscript`.
 
-Module 04 records the final Markdown path, outline version, and SHA-256 in SQLite, reports `MVP任务完成`, and stops. It performs no literature retrieval or model analysis. No Module 05 exists in the current MVP.
+Module 04 uses only the frozen outline and persisted Module 02 evidence. It writes Chinese review prose in bounded top-level-section batches, uses validated internal citation markers, marks figure/table positions with structured placeholders, and enforces a 13,500–16,500-character body range around the 15,000 target. It performs no new literature retrieval. `assemble-module04` writes `outputs/final/<module04_run_id>-review.md`, records its SHA-256 and counts, reports `MVP任务完成`, and stops. No Module 05 exists in the current MVP.
 
 ## Execution and safety
 

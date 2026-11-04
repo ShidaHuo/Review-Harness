@@ -3,7 +3,7 @@ name: review-outline-design
 description: Design and iteratively refine an evidence-mapped hierarchical review outline for one selected Module 02 perspective.
 whenToUse: Use only after the user selects a persisted Module 02 perspective.
 metadata:
-  version: "0.8"
+  version: "0.9"
 user-invocable: true
 ---
 
@@ -60,7 +60,7 @@ After displaying each outline version, every runtime presents the same numbered 
 1. 满意，冻结大纲
 2. 继续修改
 
-- For `满意，冻结大纲`, call `save-outline-feedback --decision approved`. This automatically starts Module 04, exports the final Markdown file, reports `MVP任务完成`, and stops.
+- For `满意，冻结大纲`, call `save-outline-feedback --decision approved`. This automatically creates or resumes Module 04 and returns its first manuscript-writing action. Continue with `module04-next`; do not claim completion until `assemble-module04` succeeds.
 - For `继续修改`, ask the user for concrete free-text changes. Do not infer approval. After feedback arrives, call `save-outline-feedback --decision revise --feedback "<feedback>"`, then follow `module03-next` and produce the next version.
 - Silence, timeout, or skipped interaction leaves the run at `awaiting_outline_feedback`.
 
@@ -68,4 +68,4 @@ The loop may repeat without a fixed iteration limit. Never overwrite an earlier 
 
 ## Completion
 
-`module03-next` returns `run_module04` after explicit user approval unless the final export already exists. Module 04 freezes and saves the latest outline as Markdown. Module 03 itself remains outline-only, and no prose-writing module is authorized.
+`module03-next` returns `run_module04` after explicit user approval unless a manuscript run already exists. Module 04 writes the review from the frozen outline and persisted evidence. Module 03 itself remains outline-only.

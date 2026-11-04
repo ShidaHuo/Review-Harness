@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "review-harness-mvp"
-version = "0.8.1"
+version = "0.9.0"
 description = "Cross-runtime, auditable scientific review assessment and outline workflow"
 readme = "README.md"
 license = { file = "LICENSE" }

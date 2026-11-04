@@ -3,7 +3,7 @@ name: review-landscape-analysis
 description: Analyze topic-specific review papers, then compare post-review research against normalized trend claims to propose differentiated review angles.
 whenToUse: Use only after Module 01 is explicitly approved by the user.
 metadata:
-  version: "0.8"
+  version: "0.9"
 user-invocable: true
 ---
 

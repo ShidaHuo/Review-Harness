@@ -319,16 +319,21 @@ def module03_next_action(db_path: Path, module03_run_id: str) -> dict[str, Any]:
         blocking = True
     elif run["status"] == "outline_approved":
         with connect(db_path) as connection:
-            has_export_table = connection.execute(
-                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'module04_exports'"
+            has_manuscript_table = connection.execute(
+                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'module04_manuscript_runs'"
             ).fetchone() is not None
-            export_exists = False
-            if has_export_table:
-                export_exists = connection.execute(
-                    "SELECT 1 FROM module04_exports WHERE module03_run_id = ? AND status = 'completed'",
+            manuscript = None
+            if has_manuscript_table:
+                manuscript = connection.execute(
+                    "SELECT id, status FROM module04_manuscript_runs WHERE module03_run_id = ?",
                     (module03_run_id,),
-                ).fetchone() is not None
-        action = "mvp_complete" if export_exists else "run_module04"
+                ).fetchone()
+        if manuscript is None:
+            action = "run_module04"
+        elif manuscript["status"] == "completed":
+            action = "mvp_complete"
+        else:
+            action = "continue_module04"
         blocking = False
     else:
         raise ValueError(f"Unknown Module 03 outline status: {run['status']}")
@@ -343,6 +348,8 @@ def module03_next_action(db_path: Path, module03_run_id: str) -> dict[str, Any]:
         "blocking_user_input": blocking,
         "terminal": action == "mvp_complete",
     }
+    if action == "continue_module04":
+        result["module04_run_id"] = manuscript["id"]
     if action == "revise_outline":
         with connect(db_path) as connection:
             row = connection.execute(

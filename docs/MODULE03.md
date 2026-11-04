@@ -39,7 +39,7 @@ Module 03不执行新的文献检索。
 
 选择继续修改后，用户用自由文本说明具体变化，`save-outline-feedback --decision revise`保存原始反馈，状态进入`revision_requested`。Agent读取上一版和反馈，保存新版本。该循环没有固定次数。
 
-选择满意后，`save-outline-feedback --decision approved`冻结最新版并自动执行Module 04，输出最终Markdown文件。
+选择满意后，`save-outline-feedback --decision approved`冻结最新版并自动创建或恢复Module 04 manuscript run。Module 04随后按章节撰写约15,000字综述并导出最终Markdown。
 
 ## 跨运行时交互
 

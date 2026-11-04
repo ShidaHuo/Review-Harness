@@ -12,7 +12,13 @@ from review_harness.module03_storage import (
     save_outline_version,
     start_module03_outline,
 )
-from review_harness.module04_service import export_frozen_outline, module04_export_for_run
+from review_harness.module04_service import (
+    assemble_manuscript,
+    module04_export_for_run,
+    module04_next_action,
+    save_manuscript_section,
+    start_module04_manuscript,
+)
 from review_harness.module02_storage import (
     create_module02_run,
     finalize_research_comparison,
@@ -195,17 +201,63 @@ class Module03Tests(unittest.TestCase):
             self.assertEqual(module03_next_action(db_path, module03_run_id)["action"], "run_module04")
             self.assertEqual(get_module03_run(db_path, module03_run_id)["status"], "outline_approved")
             self.assertEqual(latest_outline(db_path, module03_run_id)["version"], 2)
-            exported = export_frozen_outline(db_path, module03_run_id, root / "outputs" / "final")
+            module04_run_id = start_module04_manuscript(db_path, module03_run_id)
+            self.assertEqual(module03_next_action(db_path, module03_run_id)["action"], "continue_module04")
+            while True:
+                action = module04_next_action(db_path, module04_run_id)
+                if action["action"] != "draft_manuscript_sections":
+                    break
+                for section in action["sections"]:
+                    cite = section["section_key"] == "2"
+                    marker = "[@W-EVIDENCE]" if cite else ""
+                    markdown = (
+                        f"## {section['section_title']}\n\n"
+                        + "论述" * (section["target_characters"] // 2)
+                        + marker
+                    )
+                    figures = []
+                    tables = []
+                    if section["section_key"] == "2":
+                        figures = [{
+                            "title": "器件机制示意图",
+                            "purpose": "解释器件工作机制",
+                            "content_spec": "绘制材料、界面和传输路径",
+                            "source_evidence_ids": ["W-EVIDENCE"],
+                        }]
+                    if section["section_key"] == "3":
+                        tables = [{
+                            "title": "代表性性能比较",
+                            "purpose": "比较关键性能指标",
+                            "content_spec": "列出器件类型、工作电压和应用",
+                            "source_evidence_ids": ["W-EVIDENCE"],
+                        }]
+                    save_manuscript_section(db_path, module04_run_id, {
+                        "section_key": section["section_key"],
+                        "markdown": markdown,
+                        "cited_evidence_ids": ["W-EVIDENCE"] if cite else [],
+                        "figure_placeholders": figures,
+                        "table_placeholders": tables,
+                    })
+            self.assertEqual(action["action"], "assemble_manuscript")
+            exported = assemble_manuscript(
+                db_path, module04_run_id, root / "outputs" / "final"
+            )
             self.assertEqual(exported["message"], "MVP任务完成")
+            self.assertGreaterEqual(exported["body_characters"], 13_500)
+            self.assertLessEqual(exported["body_characters"], 16_500)
+            self.assertEqual(exported["figure_placeholders"], 1)
+            self.assertEqual(exported["table_placeholders"], 1)
             final_path = Path(exported["output_path"])
             self.assertTrue(final_path.is_file())
             final_text = final_path.read_text(encoding="utf-8")
             self.assertIn("MVP状态：任务完成", final_text)
+            self.assertIn("[图 1 置于此处", final_text)
+            self.assertIn("[表 1 置于此处", final_text)
+            self.assertIn("## 参考文献", final_text)
             self.assertNotIn("## 用户反馈", final_text)
             self.assertNotIn("W-EVIDENCE", final_text)
+            self.assertEqual(module04_next_action(db_path, module04_run_id)["action"], "mvp_complete")
             self.assertEqual(module03_next_action(db_path, module03_run_id)["action"], "mvp_complete")
-            repeated = export_frozen_outline(db_path, module03_run_id, root / "outputs" / "final")
-            self.assertEqual(repeated["module04_export_id"], exported["module04_export_id"])
             self.assertEqual(module04_export_for_run(db_path, module03_run_id)["status"], "completed")
 
     def test_each_perspective_has_independent_outline_run(self) -> None:

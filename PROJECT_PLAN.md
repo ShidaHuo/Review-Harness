@@ -1,8 +1,8 @@
 # Research Review Harness：当前唯一工作流规范
 
-> 版本：v0.8
+> 版本：v0.9
 > 日期：2026-11-03
-> 状态：Module 01至Module 04已实现；Module 04导出冻结大纲后结束当前MVP任务。
+> 状态：Module 01至Module 04已实现；Module 04完成约15,000字综述并导出Markdown后结束当前MVP任务。
 
 ## 跨运行时入口
 
@@ -20,7 +20,7 @@
 → 用户选择写作视角
 → Module 03生成分级写作大纲，逐节说明写作逻辑和安排原因
 → 用户反复提出修改，直至明确满意并冻结大纲
-→ Module 04将冻结大纲保存为最终.md文件
+→ Module 04按冻结大纲撰写约15,000字综述，标注图表位置并保存为.md文件
 → MVP任务结束
 ```
 
@@ -66,12 +66,15 @@
 - 每轮完整展示后询问“满意，冻结大纲 / 继续修改”。
 - 用户明确满意后冻结最新版并自动启动Module 04；不得生成正文、参考文献稿、图表、Word或LaTeX。
 
-## Module 04：Frozen Outline Markdown Export
+## Module 04：Review Manuscript Writing and Markdown Export
 
 - 只接受`outline_approved`的Module 03 run。
-- 确定性生成`outputs/final/<module03_run_id>-approved-outline-vNN.md`。
-- 文件不包含反馈选择，只包含冻结大纲、具体证据内容、版本和批准状态。
-- SQLite保存文件绝对路径和SHA-256。
+- 按冻结大纲分一级章节批量撰写中文综述，目标约15,000字，接受范围13,500–16,500字。
+- 只使用Module 02持久化证据，不新增文献检索，不虚构引用或实验数据。
+- 内部使用可验证证据ID，最终转换为编号引用和参考文献。
+- 标注图表插入位置、建议标题、论证用途、具体内容和来源，不生成图片二进制。
+- 字数不达标时返回逐节修订动作，达到范围后组装`outputs/final/<module04_run_id>-review.md`。
+- SQLite保存章节、正文字符数、最终路径和SHA-256。
 - 返回`MVP任务完成`并停止；当前不存在Module 05。
 
 ## 当前有效扩展
@@ -84,8 +87,8 @@
 
 ## 明确不存在
 
-- Module 04之后的正文写作Skill或Workflow；
-- 自动正文生成授权；
+- Module 05及之后的扩展Skill或Workflow；
+- Module 01或Module 02自动正文生成授权；
 - Module 01 PDF处理；
 - 在聊天中收集学校账号、密码、MFA或Cookie；
 - 使用历史输出作为当前规范。

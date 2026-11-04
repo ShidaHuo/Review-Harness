@@ -1,6 +1,6 @@
 # Review Harness MVP
 
-A local-first, auditable workflow for evaluating a scientific review topic, mapping existing reviews and recent research, iterating a structured writing outline, and exporting the approved outline as Markdown.
+A local-first, auditable workflow for evaluating a scientific review topic, mapping existing reviews and recent research, iterating a structured writing outline, and writing an approximately 15,000-Chinese-character Markdown review after outline approval.
 
 The MVP supports **DeepSeek Harness**, **Kiro Crew**, and **Codex** through one Python core and runtime-specific orchestration rules.
 
@@ -14,11 +14,11 @@ Scientific topic
 → User selects a differentiated review perspective
 → Module 03: iterative hierarchical outline design
 → User approves and freezes the outline
-→ Module 04: final Markdown export
+→ Module 04: approximately 15,000-character review writing, figure/table position markers, and final Markdown export
 → MVP complete
 ```
 
-Modules 01 and 02 never draft review prose. Module 03 designs an outline only. Module 04 exports that approved outline and ends the workflow.
+Modules 01 and 02 never draft review prose. Module 03 designs an outline only. After explicit approval, Module 04 writes and exports the review manuscript within the frozen outline and persisted evidence.
 
 ## Features
 
@@ -32,7 +32,7 @@ Modules 01 and 02 never draft review prose. Module 03 designs an outline only. M
 - Three to five differentiated review perspectives.
 - Persistent perspective branches and optional real DeepSeek Session forks.
 - Versioned Module 03 outlines with section-level writing logic and rationale.
-- Final approved `.md` export with content SHA-256.
+- Section-batched Module 04 manuscript writing with a 15,000-character target, validated citations, figure/table position markers, and final `.md` SHA-256.
 - SQLite checkpoints for interrupted-run recovery.
 
 ## Requirements
@@ -180,10 +180,10 @@ runtime/research.sqlite3
 runtime/raw/
 runtime/institutional-pdfs/
 outputs/
-outputs/final/<module03_run_id>-approved-outline-vNN.md
+outputs/final/<module04_run_id>-review.md
 ```
 
-The final Markdown contains the frozen outline, writing logic, rationale, concrete evidence descriptions, version, approval time, and completion status. It contains no review prose.
+The final Markdown contains an approximately 15,000-character Chinese review, numbered citations resolved from persisted evidence, marked figure/table positions with content specifications, references, character count, and completion status.
 
 ## Project structure
 
@@ -216,7 +216,7 @@ Do not commit `runtime/`, `outputs/`, PDFs, `.env`, or `OPENALEX_API_KEY.txt`.
 - OpenAlex counts may be lower bounds when a query reaches its configured page cap.
 - Semantic screening still depends on the active model, while query execution and state gates are deterministic.
 - Institutional access does not override publisher licenses or permit bulk downloading.
-- The MVP ends after exporting an approved outline; it does not write a manuscript.
+- The MVP writes an approximately 15,000-character Chinese review draft after outline approval; it still requires human scientific and editorial review before submission.
 
 ## Security
 
