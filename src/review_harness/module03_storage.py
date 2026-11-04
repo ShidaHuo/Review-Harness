@@ -323,17 +323,30 @@ def module03_next_action(db_path: Path, module03_run_id: str) -> dict[str, Any]:
                 "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'module04_manuscript_runs'"
             ).fetchone() is not None
             manuscript = None
+            module05 = None
             if has_manuscript_table:
                 manuscript = connection.execute(
                     "SELECT id, status FROM module04_manuscript_runs WHERE module03_run_id = ?",
                     (module03_run_id,),
                 ).fetchone()
+            has_module05_table = connection.execute(
+                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'module05_runs'"
+            ).fetchone() is not None
+            if manuscript is not None and has_module05_table:
+                module05 = connection.execute(
+                    "SELECT id, status FROM module05_runs WHERE module04_run_id = ?",
+                    (manuscript["id"],),
+                ).fetchone()
         if manuscript is None:
             action = "run_module04"
-        elif manuscript["status"] == "completed":
+        elif manuscript["status"] != "completed":
+            action = "continue_module04"
+        elif module05 is None:
+            action = "start_module05"
+        elif module05["status"] == "completed":
             action = "mvp_complete"
         else:
-            action = "continue_module04"
+            action = "continue_module05"
         blocking = False
     else:
         raise ValueError(f"Unknown Module 03 outline status: {run['status']}")
@@ -348,8 +361,11 @@ def module03_next_action(db_path: Path, module03_run_id: str) -> dict[str, Any]:
         "blocking_user_input": blocking,
         "terminal": action == "mvp_complete",
     }
-    if action == "continue_module04":
+    if action in {"continue_module04", "start_module05"}:
         result["module04_run_id"] = manuscript["id"]
+    if action == "continue_module05":
+        result["module04_run_id"] = manuscript["id"]
+        result["module05_run_id"] = module05["id"]
     if action == "revise_outline":
         with connect(db_path) as connection:
             row = connection.execute(

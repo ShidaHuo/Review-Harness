@@ -3,7 +3,7 @@ name: review-outline-design
 description: Design and iteratively refine an evidence-mapped hierarchical review outline for one selected Module 02 perspective.
 whenToUse: Use only after the user selects a persisted Module 02 perspective.
 metadata:
-  version: "0.9"
+  version: "0.10"
 user-invocable: true
 ---
 

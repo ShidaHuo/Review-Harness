@@ -71,6 +71,7 @@ class RuntimePolicy:
     module02_skill: str
     module03_skill: str
     module04_skill: str
+    module05_skill: str
     decision_interaction: str
     module01_completion_gate: str
     module02_orchestration: str
@@ -138,10 +139,11 @@ def policy_for(runtime: RuntimeName, project_root: Path, confidence: str, eviden
         "module02_skill": str((skill_root / "review-landscape-analysis" / "SKILL.md").resolve()),
         "module03_skill": str((skill_root / "review-outline-design" / "SKILL.md").resolve()),
         "module04_skill": str((skill_root / "review-outline-export" / "SKILL.md").resolve()),
+        "module05_skill": str((skill_root / "review-manuscript-evaluation" / "SKILL.md").resolve()),
         "selection_terminal_message": "Start or resume the selected Module 03 outline run.",
         "module01_completion_gate": "Repeat review-harness module01-next after every persisted step until the complete report decision.",
         "module02_completion_gate": "Repeat review-harness module02-next after every persisted step until perspective selection.",
-        "strict_boundary": "Module 01/02 do not draft; Module 03 designs the outline; Module 04 writes the approved approximately 15,000-character Markdown review and ends the MVP.",
+        "strict_boundary": "Module 01/02 do not draft; Module 03 designs the outline; Module 04 writes the approximately 15,000-character review; Module 05 evaluates content, revises, and exports DOCX.",
     }
     if runtime == RuntimeName.DEEPSEEK_HARNESS:
         return RuntimePolicy(

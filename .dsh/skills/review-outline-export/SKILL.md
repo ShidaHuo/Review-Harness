@@ -1,11 +1,11 @@
 ---
 name: review-manuscript-writing
 extension: .md
-version: "0.9"
+version: "0.10"
 description: Write an approximately 15,000-Chinese-character review from the frozen Module 03 outline, mark figure/table positions, and save the final Markdown manuscript.
 whenToUse: Use automatically after the user selects “满意，冻结大纲” in Module 03.
 metadata:
-  version: "0.9"
+  version: "0.10"
 user-invocable: true
 ---
 
@@ -98,7 +98,7 @@ The assembler:
 5. verifies the accepted body length;
 6. writes `outputs/final/<module04_run_id>-review.md` atomically;
 7. records path, SHA-256, character count, and completion state;
-8. returns `MVP任务完成` and stops.
+8. starts Module 05 for content evaluation and revision.
 
 ## Cross-runtime execution
 
@@ -108,6 +108,6 @@ The assembler:
 
 Every runtime follows the same Python section plans, evidence validation, length gate, assembly, and final output.
 
-## Current MVP endpoint
+## Current stage endpoint
 
-Module 04 completion ends the task. No Module 05 exists. The generated manuscript remains a draft requiring human scientific and editorial review before submission.
+Module 04 completion must immediately start Module 05; it is not the final workflow state. The generated Markdown remains the input draft for content evaluation and concrete revision.

@@ -321,9 +321,9 @@ def module04_next_action(db_path: Path, module04_run_id: str) -> dict[str, Any]:
     if run["status"] == "completed":
         return {
             "module04_run_id": module04_run_id,
-            "action": "mvp_complete",
+            "action": "start_module05",
             "blocking_user_input": False,
-            "terminal": True,
+            "terminal": False,
         }
     pending = [section for section in sections if section["status"] != "drafted"]
     if pending:
@@ -492,7 +492,7 @@ def assemble_manuscript(
         f"- 正文字数口径：去除空白和Markdown标记后约{body_characters}字\n"
         f"- 图位置标记：{figure_number}处\n"
         f"- 表位置标记：{table_number}处\n"
-        f"- MVP状态：任务完成"
+        f"- Module 04状态：Markdown稿件完成，待Module 05评价与修订"
     )
     content = "\n\n".join(parts).strip() + "\n"
     output_directory.mkdir(parents=True, exist_ok=True)
@@ -546,7 +546,7 @@ def assemble_manuscript(
         "figure_placeholders": figure_number,
         "table_placeholders": table_number,
         "status": "completed",
-        "message": "MVP任务完成",
+        "message": "Module 04完成，进入Module 05评价与修订",
     }
 
 

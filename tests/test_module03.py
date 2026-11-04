@@ -1,5 +1,6 @@
 import tempfile
 import unittest
+import zipfile
 from datetime import date
 from pathlib import Path
 
@@ -18,6 +19,13 @@ from review_harness.module04_service import (
     module04_next_action,
     save_manuscript_section,
     start_module04_manuscript,
+)
+from review_harness.module05_service import (
+    export_final_docx,
+    module05_next_action,
+    save_manuscript_evaluation,
+    save_revised_manuscript,
+    start_module05_evaluation,
 )
 from review_harness.module02_storage import (
     create_module02_run,
@@ -242,7 +250,7 @@ class Module03Tests(unittest.TestCase):
             exported = assemble_manuscript(
                 db_path, module04_run_id, root / "outputs" / "final"
             )
-            self.assertEqual(exported["message"], "MVP任务完成")
+            self.assertEqual(exported["message"], "Module 04完成，进入Module 05评价与修订")
             self.assertGreaterEqual(exported["body_characters"], 13_500)
             self.assertLessEqual(exported["body_characters"], 16_500)
             self.assertEqual(exported["figure_placeholders"], 1)
@@ -250,15 +258,93 @@ class Module03Tests(unittest.TestCase):
             final_path = Path(exported["output_path"])
             self.assertTrue(final_path.is_file())
             final_text = final_path.read_text(encoding="utf-8")
-            self.assertIn("MVP状态：任务完成", final_text)
+            self.assertIn("Module 04状态：Markdown稿件完成", final_text)
             self.assertIn("[图 1 置于此处", final_text)
             self.assertIn("[表 1 置于此处", final_text)
             self.assertIn("## 参考文献", final_text)
             self.assertNotIn("## 用户反馈", final_text)
             self.assertNotIn("W-EVIDENCE", final_text)
-            self.assertEqual(module04_next_action(db_path, module04_run_id)["action"], "mvp_complete")
-            self.assertEqual(module03_next_action(db_path, module03_run_id)["action"], "mvp_complete")
+            self.assertEqual(module04_next_action(db_path, module04_run_id)["action"], "start_module05")
+            self.assertEqual(module03_next_action(db_path, module03_run_id)["action"], "start_module05")
             self.assertEqual(module04_export_for_run(db_path, module03_run_id)["status"], "completed")
+
+            module05_run_id = start_module05_evaluation(db_path, module04_run_id)
+            self.assertEqual(module03_next_action(db_path, module03_run_id)["action"], "continue_module05")
+            self.assertEqual(module05_next_action(db_path, module05_run_id)["action"], "evaluate_manuscript")
+
+            def dimension(score: int, weakness: str, change: str) -> dict:
+                return {
+                    "score": score,
+                    "strengths": ["稿件保持了冻结大纲的主线。"],
+                    "weaknesses": [weakness],
+                    "evidence": ["Theoretical foundations与Future perspective之间的推导仍可加强。"],
+                    "required_changes": [change],
+                }
+
+            evaluation = {
+                "module05_run_id": module05_run_id,
+                "overall_assessment": "稿件视角清楚，但差异化论证和章节闭环需要具体加强。",
+                "dimensions": {
+                    "review_perspective": dimension(4, "视角在中段弱化。", "在理论章节重申评测视角。"),
+                    "differentiation": dimension(3, "与既有综述差异缺少集中比较。", "增加差异比较段。"),
+                    "logic": dimension(3, "理论与展望衔接不足。", "增加因果过渡。"),
+                    "completeness": dimension(4, "局限性讨论较分散。", "集中总结适用边界。"),
+                },
+                "priority_revisions": [
+                    {
+                        "id": "R1",
+                        "priority": "high",
+                        "location": "Theoretical foundations结尾",
+                        "problem": "没有把机制分析收束到评测视角。",
+                        "change_instruction": "增加一段机制到评测指标的映射。",
+                        "success_criterion": "读者可以从机制直接推导出评测维度。",
+                    },
+                    {
+                        "id": "R2",
+                        "priority": "high",
+                        "location": "Future perspective开头",
+                        "problem": "与既有综述的差异没有集中呈现。",
+                        "change_instruction": "增加与既有综述组织逻辑的对照段。",
+                        "success_criterion": "明确说明本稿新增的组织轴和结论。",
+                    },
+                ],
+                "revision_strategy": ["先修复核心逻辑链", "再强化差异化结论"],
+            }
+            save_manuscript_evaluation(db_path, module05_run_id, evaluation)
+            self.assertEqual(module05_next_action(db_path, module05_run_id)["action"], "revise_manuscript")
+            revised_text = final_text.replace(
+                "## 参考文献",
+                "## 内容修订说明\n\n机制分析现已映射到评测维度，并集中说明与既有综述的差异。\n\n## 参考文献",
+            )
+            save_revised_manuscript(db_path, module05_run_id, {
+                "module05_run_id": module05_run_id,
+                "revised_markdown": revised_text,
+                "addressed_revision_ids": ["R1", "R2"],
+                "change_log": [
+                    {
+                        "revision_id": "R1",
+                        "location": "Theoretical foundations结尾",
+                        "change_summary": "增加机制与评测维度映射。",
+                    },
+                    {
+                        "revision_id": "R2",
+                        "location": "Future perspective开头",
+                        "change_summary": "增加与既有综述的集中差异比较。",
+                    },
+                ],
+            })
+            self.assertEqual(module05_next_action(db_path, module05_run_id)["action"], "export_final_docx")
+            docx = export_final_docx(db_path, module05_run_id, root / "outputs" / "final")
+            self.assertEqual(docx["status"], "completed")
+            docx_path = Path(docx["final_docx_path"])
+            self.assertTrue(docx_path.is_file())
+            self.assertGreater(docx_path.stat().st_size, 1000)
+            with zipfile.ZipFile(docx_path) as archive:
+                self.assertIn("word/document.xml", archive.namelist())
+                document_xml = archive.read("word/document.xml").decode("utf-8")
+            self.assertIn("内容修订说明", document_xml)
+            self.assertEqual(module05_next_action(db_path, module05_run_id)["action"], "mvp_complete")
+            self.assertEqual(module03_next_action(db_path, module03_run_id)["action"], "mvp_complete")
 
     def test_each_perspective_has_independent_outline_run(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:

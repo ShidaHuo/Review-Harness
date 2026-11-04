@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.10.0 - 2026-11-04
+
+- Added Module 05 evaluation of review perspective, differentiation, logic, and completeness.
+- Added concrete priority revision plans with manuscript locations and success criteria.
+- Added full-manuscript revision coverage checks and change logs.
+- Added dependency-free final DOCX generation using standard OOXML packaging.
+- Moved the MVP terminal state from Module 04 to Module 05.
+
 ## 0.9.0 - 2026-11-04
 
 - Redefined Module 04 as section-batched Chinese review-manuscript writing after outline approval.

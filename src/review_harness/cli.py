@@ -24,6 +24,14 @@ from .module04_service import (
     save_manuscript_section,
     start_module04_manuscript,
 )
+from .module05_service import (
+    export_final_docx,
+    get_module05_run,
+    module05_next_action,
+    save_manuscript_evaluation,
+    save_revised_manuscript,
+    start_module05_evaluation,
+)
 from .module02_service import run_post_review_research_search, run_review_search
 from .module02_storage import (
     attach_perspective_sessions,
@@ -327,6 +335,37 @@ def build_parser() -> argparse.ArgumentParser:
     module04_status = subparsers.add_parser("module04-status", help="Show the manuscript-writing run")
     module04_status.add_argument("--module04-run-id", required=True)
 
+    start_module05 = subparsers.add_parser(
+        "start-module05", help="Start or resume content evaluation of a completed Module 04 manuscript"
+    )
+    start_module05.add_argument("--module04-run-id", required=True)
+
+    module05_next = subparsers.add_parser(
+        "module05-next", help="Return the next mandatory evaluation, revision, or DOCX action"
+    )
+    module05_next.add_argument("--module05-run-id", required=True)
+
+    import_evaluation = subparsers.add_parser(
+        "import-manuscript-evaluation", help="Persist the four-dimension manuscript evaluation"
+    )
+    import_evaluation.add_argument("--module05-run-id", required=True)
+    import_evaluation.add_argument("--input", type=Path, required=True)
+
+    import_revision = subparsers.add_parser(
+        "import-revised-manuscript", help="Persist the manuscript revised from the evaluation"
+    )
+    import_revision.add_argument("--module05-run-id", required=True)
+    import_revision.add_argument("--input", type=Path, required=True)
+
+    export_docx = subparsers.add_parser(
+        "export-final-docx", help="Export the evaluated and revised manuscript as DOCX"
+    )
+    export_docx.add_argument("--module05-run-id", required=True)
+    export_docx.add_argument("--output-directory", type=Path, default=DEFAULT_OUTPUTS / "final")
+
+    module05_status = subparsers.add_parser("module05-status", help="Show the Module 05 run")
+    module05_status.add_argument("--module05-run-id", required=True)
+
     return parser
 
 
@@ -577,13 +616,44 @@ def main(argv: list[str] | None = None) -> int:
             result["next_action"] = module04_next_action(args.db, args.module04_run_id)
             _print_json(result)
         elif args.command == "assemble-module04":
-            _print_json(assemble_manuscript(
+            result = assemble_manuscript(
                 args.db, args.module04_run_id, args.output_directory
-            ))
+            )
+            module05_run_id = start_module05_evaluation(args.db, args.module04_run_id)
+            result["module05_run_id"] = module05_run_id
+            result["module05_next_action"] = module05_next_action(args.db, module05_run_id)
+            _print_json(result)
         elif args.command == "module04-status":
             run = get_module04_run(args.db, args.module04_run_id)
             run["next_action"] = module04_next_action(args.db, args.module04_run_id)
             run["export"] = module04_export_for_run(args.db, run["module03_run_id"])
+            _print_json(run)
+        elif args.command == "start-module05":
+            run_id = start_module05_evaluation(args.db, args.module04_run_id)
+            _print_json({
+                "module05_run_id": run_id,
+                "status": get_module05_run(args.db, run_id)["status"],
+                "next_action": module05_next_action(args.db, run_id),
+            })
+        elif args.command == "module05-next":
+            _print_json(module05_next_action(args.db, args.module05_run_id))
+        elif args.command == "import-manuscript-evaluation":
+            payload = _json_file(args.input)
+            result = save_manuscript_evaluation(args.db, args.module05_run_id, payload)
+            result["next_action"] = module05_next_action(args.db, args.module05_run_id)
+            _print_json(result)
+        elif args.command == "import-revised-manuscript":
+            payload = _json_file(args.input)
+            result = save_revised_manuscript(args.db, args.module05_run_id, payload)
+            result["next_action"] = module05_next_action(args.db, args.module05_run_id)
+            _print_json(result)
+        elif args.command == "export-final-docx":
+            _print_json(export_final_docx(
+                args.db, args.module05_run_id, args.output_directory
+            ))
+        elif args.command == "module05-status":
+            run = get_module05_run(args.db, args.module05_run_id)
+            run["next_action"] = module05_next_action(args.db, args.module05_run_id)
             _print_json(run)
         else:
             raise AssertionError(f"Unhandled command: {args.command}")

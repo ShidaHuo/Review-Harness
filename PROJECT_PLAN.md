@@ -1,8 +1,8 @@
 # Research Review Harness：当前唯一工作流规范
 
-> 版本：v0.9
+> 版本：v0.10
 > 日期：2026-11-03
-> 状态：Module 01至Module 04已实现；Module 04完成约15,000字综述并导出Markdown后结束当前MVP任务。
+> 状态：Module 01至Module 05已实现；Module 05完成内容评价、具体修订和DOCX导出后结束当前MVP任务。
 
 ## 跨运行时入口
 
@@ -21,6 +21,7 @@
 → Module 03生成分级写作大纲，逐节说明写作逻辑和安排原因
 → 用户反复提出修改，直至明确满意并冻结大纲
 → Module 04按冻结大纲撰写约15,000字综述，标注图表位置并保存为.md文件
+→ Module 05评价视角差异、逻辑和完整性，按评价具体修改稿件并导出.docx
 → MVP任务结束
 ```
 
@@ -75,11 +76,21 @@
 - 标注图表插入位置、建议标题、论证用途、具体内容和来源，不生成图片二进制。
 - 字数不达标时返回逐节修订动作，达到范围后组装`outputs/final/<module04_run_id>-review.md`。
 - SQLite保存章节、正文字符数、最终路径和SHA-256。
-- 返回`MVP任务完成`并停止；当前不存在Module 05。
+- Module 04完成后自动启动Module 05；当前不存在Module 06。
+
+## Module 05：Manuscript Evaluation, Revision, and DOCX Export
+
+- 只评价综述视角、与此前同主题/邻近综述的差异、稿件逻辑和内容完整性。
+- 不评价格式、图表或参考文献/引用准确度。
+- 每条评价必须明确稿件位置、具体问题、修改方法和验收标准。
+- 按全部优先修订项修改完整稿件，并记录逐项变更。
+- Python检查修订覆盖、篇幅保持、章节结构和内部ID清理。
+- 最终输出`outputs/final/<module05_run_id>-final-review.docx`及配套Markdown。
+- DOCX保存SHA-256；完成后停止，当前不存在Module 06。
 
 ## 当前有效扩展
 
-- Skills：`.dsh/skills/research-topic-evaluation/`、`.dsh/skills/review-landscape-analysis/`、`.dsh/skills/review-outline-design/`、`.dsh/skills/review-outline-export/`
+- Skills：`.dsh/skills/research-topic-evaluation/`、`.dsh/skills/review-landscape-analysis/`、`.dsh/skills/review-outline-design/`、`.dsh/skills/review-outline-export/`、`.dsh/skills/review-manuscript-evaluation/`
 - Workflows：`workflows/module02-review-landscape/`
 - Session fork插件：`plugin/perspective-branches/`（真实调用DeepSeek Harness `sessionController.fork()`；安装后可用）
 - Python核心：`src/review_harness/`
@@ -87,7 +98,7 @@
 
 ## 明确不存在
 
-- Module 05及之后的扩展Skill或Workflow；
+- Module 06及之后的扩展Skill或Workflow；
 - Module 01或Module 02自动正文生成授权；
 - Module 01 PDF处理；
 - 在聊天中收集学校账号、密码、MFA或Cookie；

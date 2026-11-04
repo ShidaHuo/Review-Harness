@@ -25,6 +25,8 @@ class ContractFileTests(unittest.TestCase):
             PROJECT_ROOT / "schemas" / "perspective-selection.schema.json",
             PROJECT_ROOT / "schemas" / "review-outline.schema.json",
             PROJECT_ROOT / "schemas" / "manuscript-section.schema.json",
+            PROJECT_ROOT / "schemas" / "manuscript-evaluation.schema.json",
+            PROJECT_ROOT / "schemas" / "manuscript-revision.schema.json",
             PROJECT_ROOT / "examples" / "uv-miniature-computational-spectrometer.topic-profile.json",
         ]
         for path in files:
@@ -60,6 +62,13 @@ class ContractFileTests(unittest.TestCase):
         self.assertTrue(module04_skill.startswith("---\n"))
         self.assertIn("name: review-manuscript-writing", module04_skill)
         self.assertIn("user-invocable: true", module04_skill)
+
+        module05_skill = (
+            PROJECT_ROOT / ".dsh" / "skills" / "review-manuscript-evaluation" / "SKILL.md"
+        ).read_text(encoding="utf-8")
+        self.assertTrue(module05_skill.startswith("---\n"))
+        self.assertIn("name: review-manuscript-evaluation", module05_skill)
+        self.assertIn("user-invocable: true", module05_skill)
 
     def test_real_session_fork_plugin_contract(self) -> None:
         plugin = (PROJECT_ROOT / "plugin" / "perspective-branches" / "index.js").read_text(encoding="utf-8")
