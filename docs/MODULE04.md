@@ -15,7 +15,7 @@
 
 ## 分节写作
 
-Python根据冻结大纲建立Abstract和每个一级章节的写作计划，按章节复杂度分配目标字数。`module04-next`每次最多返回两个待写章节。Agent按冻结大纲中的目的、逻辑、问题、证据和衔接撰写，并通过`import-manuscript-section`保存。
+Python根据冻结大纲建立Abstract和每个一级章节的写作计划，按章节复杂度分配目标字数。`module04-next`返回当前全部剩余章节，并标记`must_continue=true`。Agent必须在同一任务轮中逐节保存、再次检查状态，不得把内部章节批次作为面向用户的停止点。
 
 Module 04只使用Module 02已持久化证据，不新增检索。草稿使用`[@evidence_id]`内部引用标记；Python验证后在最终稿中替换成编号引用，用户不会看到裸ID。
 

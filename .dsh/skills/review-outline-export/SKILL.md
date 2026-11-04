@@ -1,11 +1,11 @@
 ---
 name: review-manuscript-writing
 extension: .md
-version: "0.10"
+version: "0.10.1"
 description: Write an approximately 15,000-Chinese-character review from the frozen Module 03 outline, mark figure/table positions, and save the final Markdown manuscript.
 whenToUse: Use automatically after the user selects “满意，冻结大纲” in Module 03.
 metadata:
-  version: "0.10"
+  version: "0.10.1"
 user-invocable: true
 ---
 
@@ -34,13 +34,13 @@ Internal citations use `[@evidence_id]` while drafting. Python validates every i
 
 ## Section-batched writing
 
-The normal approval command automatically creates or resumes a Module 04 manuscript run. Then repeat:
+The normal approval command automatically creates or resumes a Module 04 manuscript run. Every returned action includes `must_continue`. When it is true, complete the action, call `module04-next` again, and do not send a user-visible progress message.
 
 ```powershell
 python -m review_harness module04-next --module04-run-id <id>
 ```
 
-When the action is `draft_manuscript_sections`, write only the returned sections. The Python core allocates character targets from the frozen outline and returns at most two sections per batch. Each draft must:
+When the action is `draft_manuscript_sections`, write every returned section before replying. The Python core allocates character targets from the frozen outline and returns all remaining sections in the current action so Codex and other hosts do not treat an internal batch boundary as a user-visible stopping point. Each draft must:
 
 - follow the frozen hierarchy and section logic;
 - synthesize evidence rather than list papers;

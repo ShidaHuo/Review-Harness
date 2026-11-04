@@ -1,10 +1,10 @@
 ---
 name: review-manuscript-evaluation
-version: "0.10"
+version: "0.10.1"
 description: Evaluate the Module 04 review for perspective, differentiation, logic, and completeness; revise it concretely; and export the final DOCX.
 whenToUse: Use automatically after Module 04 completes its Markdown manuscript.
 metadata:
-  version: "0.10"
+  version: "0.10.1"
 user-invocable: true
 ---
 
@@ -13,6 +13,8 @@ user-invocable: true
 ## Purpose
 
 Module 05 evaluates the completed Module 04 review, turns every substantive weakness into a concrete revision instruction, revises the manuscript accordingly, and exports the final version as `.docx`.
+
+Module 05 is driven by `module05-next`. Every nonterminal action returns `must_continue=true`; execute evaluation, revision, and DOCX export without sending an intermediate user-visible message. Stop only after `mvp_complete`.
 
 ## Evaluation scope
 

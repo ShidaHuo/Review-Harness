@@ -129,7 +129,7 @@ All runtimes use the same numbered plain-text interaction. “继续修改” re
 
 ## Module 04 manuscript writing and export
 
-After approval, load or read `.dsh/skills/review-outline-export/SKILL.md`. The normal `save-outline-feedback --decision approved` command creates or resumes a 15,000-character manuscript run. Then call `module04-next --module04-run-id <id>` after every section import and execute every non-blocking action until `assemble_manuscript`.
+After approval, load or read `.dsh/skills/review-outline-export/SKILL.md`. The normal `save-outline-feedback --decision approved` command creates or resumes a 15,000-character manuscript run. Then call `module04-next --module04-run-id <id>` after every section import and execute every non-blocking action until `assemble_manuscript`. Every Module 04/05 action returns `must_continue`; when true, do not send any user-visible progress message or end the turn. `draft_manuscript_sections` returns all remaining sections so they can be completed within the same task turn; import every returned section before replying.
 
 Module 04 uses only the frozen outline and persisted Module 02 evidence. It writes Chinese review prose in bounded top-level-section batches, uses validated internal citation markers, marks figure/table positions with structured placeholders, and enforces a 13,500–16,500-character body range around the 15,000 target. It performs no new literature retrieval. `assemble-module04` writes `outputs/final/<module04_run_id>-review.md`, records its SHA-256 and counts, then must start Module 05 without stopping.
 

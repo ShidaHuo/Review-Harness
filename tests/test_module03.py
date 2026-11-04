@@ -211,6 +211,9 @@ class Module03Tests(unittest.TestCase):
             self.assertEqual(latest_outline(db_path, module03_run_id)["version"], 2)
             module04_run_id = start_module04_manuscript(db_path, module03_run_id)
             self.assertEqual(module03_next_action(db_path, module03_run_id)["action"], "continue_module04")
+            first_manuscript_action = module04_next_action(db_path, module04_run_id)
+            self.assertTrue(first_manuscript_action["must_continue"])
+            self.assertEqual(len(first_manuscript_action["sections"]), 4)
             while True:
                 action = module04_next_action(db_path, module04_run_id)
                 if action["action"] != "draft_manuscript_sections":

@@ -593,7 +593,9 @@ def main(argv: list[str] | None = None) -> int:
                     args.target_characters,
                 )
                 result["module04_run_id"] = module04_run_id
-                result["module04_next_action"] = module04_next_action(args.db, module04_run_id)
+                next_action = module04_next_action(args.db, module04_run_id)
+                result["module04_next_action"] = next_action
+                result["must_continue"] = next_action["must_continue"]
                 result["task_status"] = "module04_started"
             _print_json(result)
         elif args.command == "render-outline":
@@ -603,17 +605,21 @@ def main(argv: list[str] | None = None) -> int:
             module04_run_id = start_module04_manuscript(
                 args.db, args.module03_run_id, args.target_characters
             )
+            next_action = module04_next_action(args.db, module04_run_id)
             _print_json({
                 "module04_run_id": module04_run_id,
                 "status": get_module04_run(args.db, module04_run_id)["status"],
-                "next_action": module04_next_action(args.db, module04_run_id),
+                "next_action": next_action,
+                "must_continue": next_action["must_continue"],
             })
         elif args.command == "module04-next":
             _print_json(module04_next_action(args.db, args.module04_run_id))
         elif args.command == "import-manuscript-section":
             payload = _json_file(args.input)
             result = save_manuscript_section(args.db, args.module04_run_id, payload)
-            result["next_action"] = module04_next_action(args.db, args.module04_run_id)
+            next_action = module04_next_action(args.db, args.module04_run_id)
+            result["next_action"] = next_action
+            result["must_continue"] = next_action["must_continue"]
             _print_json(result)
         elif args.command == "assemble-module04":
             result = assemble_manuscript(
@@ -621,7 +627,9 @@ def main(argv: list[str] | None = None) -> int:
             )
             module05_run_id = start_module05_evaluation(args.db, args.module04_run_id)
             result["module05_run_id"] = module05_run_id
-            result["module05_next_action"] = module05_next_action(args.db, module05_run_id)
+            module05_action = module05_next_action(args.db, module05_run_id)
+            result["module05_next_action"] = module05_action
+            result["must_continue"] = module05_action["must_continue"]
             _print_json(result)
         elif args.command == "module04-status":
             run = get_module04_run(args.db, args.module04_run_id)
@@ -640,12 +648,16 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "import-manuscript-evaluation":
             payload = _json_file(args.input)
             result = save_manuscript_evaluation(args.db, args.module05_run_id, payload)
-            result["next_action"] = module05_next_action(args.db, args.module05_run_id)
+            next_action = module05_next_action(args.db, args.module05_run_id)
+            result["next_action"] = next_action
+            result["must_continue"] = next_action["must_continue"]
             _print_json(result)
         elif args.command == "import-revised-manuscript":
             payload = _json_file(args.input)
             result = save_revised_manuscript(args.db, args.module05_run_id, payload)
-            result["next_action"] = module05_next_action(args.db, args.module05_run_id)
+            next_action = module05_next_action(args.db, args.module05_run_id)
+            result["next_action"] = next_action
+            result["must_continue"] = next_action["must_continue"]
             _print_json(result)
         elif args.command == "export-final-docx":
             _print_json(export_final_docx(

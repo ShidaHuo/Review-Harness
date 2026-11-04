@@ -324,6 +324,7 @@ def module04_next_action(db_path: Path, module04_run_id: str) -> dict[str, Any]:
             "action": "start_module05",
             "blocking_user_input": False,
             "terminal": False,
+            "must_continue": True,
         }
     pending = [section for section in sections if section["status"] != "drafted"]
     if pending:
@@ -332,6 +333,7 @@ def module04_next_action(db_path: Path, module04_run_id: str) -> dict[str, Any]:
             "action": "draft_manuscript_sections",
             "blocking_user_input": False,
             "terminal": False,
+            "must_continue": True,
             "target_total_characters": run["target_characters"],
             "sections": [
                 {
@@ -340,9 +342,10 @@ def module04_next_action(db_path: Path, module04_run_id: str) -> dict[str, Any]:
                     "target_characters": section["target_characters"],
                     "outline_plan": section["outline_plan"],
                 }
-                for section in pending[:2]
+                for section in pending
             ],
-            "instructions": "Draft in Chinese, use [@evidence_id] internally for citations, and supply figure/table position specifications separately.",
+            "required_completion": "Persist every returned section before any user-visible reply.",
+            "instructions": "Draft every returned section in Chinese, use [@evidence_id] internally for citations, supply figure/table position specifications separately, import each section, and call module04-next again without replying to the user.",
         }
     figure_count = sum(len(section["figure_placeholders"]) for section in sections)
     table_count = sum(len(section["table_placeholders"]) for section in sections)
@@ -357,6 +360,7 @@ def module04_next_action(db_path: Path, module04_run_id: str) -> dict[str, Any]:
             "action": "add_figure_table_positions",
             "blocking_user_input": False,
             "terminal": False,
+            "must_continue": True,
             "missing": [
                 kind for kind, count in (("figure", figure_count), ("table", table_count))
                 if count == 0
@@ -375,6 +379,7 @@ def module04_next_action(db_path: Path, module04_run_id: str) -> dict[str, Any]:
             "action": "revise_manuscript_length",
             "blocking_user_input": False,
             "terminal": False,
+            "must_continue": True,
             "target_characters": run["target_characters"],
             "minimum": run["min_characters"],
             "maximum": run["max_characters"],
@@ -393,6 +398,7 @@ def module04_next_action(db_path: Path, module04_run_id: str) -> dict[str, Any]:
         "action": "assemble_manuscript",
         "blocking_user_input": False,
         "terminal": False,
+        "must_continue": True,
         "actual_characters": total,
     }
 

@@ -33,7 +33,7 @@ Modules 01 and 02 never draft review prose. Module 03 designs an outline only. A
 - Three to five differentiated review perspectives.
 - Persistent perspective branches and optional real DeepSeek Session forks.
 - Versioned Module 03 outlines with section-level writing logic and rationale.
-- Section-batched Module 04 manuscript writing with a 15,000-character target, validated citations, figure/table position markers, and Markdown SHA-256.
+- Section-batched Module 04 manuscript writing with a 15,000-character target, validated citations, figure/table position markers, and Markdown SHA-256. The conductor returns all remaining sections and `must_continue=true` to prevent Codex from stopping at internal section boundaries.
 - Module 05 content evaluation across perspective, differentiation, logic, and completeness, followed by concrete revision and final DOCX export.
 - SQLite checkpoints for interrupted-run recovery.
 

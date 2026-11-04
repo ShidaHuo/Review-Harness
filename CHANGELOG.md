@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.10.1 - 2026-11-04
+
+- Fixed Codex stopping after the first Module 04 manuscript section batch.
+- Module 04 now returns all remaining sections in one action and sets `must_continue=true` on every nonterminal action.
+- Module 05 evaluation, revision, and DOCX actions now carry the same explicit continuation contract.
+
 ## 0.10.0 - 2026-11-04
 
 - Added Module 05 evaluation of review perspective, differentiation, logic, and completeness.

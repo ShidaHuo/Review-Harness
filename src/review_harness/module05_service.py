@@ -234,6 +234,7 @@ def module05_next_action(db_path: Path, module05_run_id: str) -> dict[str, Any]:
             "action": "evaluate_manuscript",
             "blocking_user_input": False,
             "terminal": False,
+            "must_continue": True,
             "source_markdown_path": run["source_markdown_path"],
             "selected_perspective": module03["perspective"],
             "prior_reviews": prior_reviews,
@@ -255,6 +256,7 @@ def module05_next_action(db_path: Path, module05_run_id: str) -> dict[str, Any]:
             "action": "revise_manuscript",
             "blocking_user_input": False,
             "terminal": False,
+            "must_continue": True,
             "source_markdown_path": run["source_markdown_path"],
             "evaluation": run["evaluation"],
             "instructions": "Apply every priority revision to the concrete manuscript location and preserve claims outside the evaluation scope.",
@@ -265,6 +267,7 @@ def module05_next_action(db_path: Path, module05_run_id: str) -> dict[str, Any]:
             "action": "export_final_docx",
             "blocking_user_input": False,
             "terminal": False,
+            "must_continue": True,
         }
     if run["status"] == "completed":
         return {
@@ -272,6 +275,7 @@ def module05_next_action(db_path: Path, module05_run_id: str) -> dict[str, Any]:
             "action": "mvp_complete",
             "blocking_user_input": False,
             "terminal": True,
+            "must_continue": False,
             "final_docx_path": run["final_docx_path"],
         }
     raise ValueError(f"Unknown Module 05 status: {run['status']}")
