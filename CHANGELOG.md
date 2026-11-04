@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.11.0 - 2026-11-04
+
+- Added the Module 03 granularity gate: every non-introduction/non-conclusion top-level section requires at least two second-level sections, and method/mechanism sections require third-level structure.
+- Replaced section-batched Module 04 with one coherent root-agent manuscript conversation.
+- Allowed the direct manuscript to use all relevant in-scope Module 02 evidence while preserving the frozen perspective.
+- Removed Module 05 self-review and DOCX export from the active workflow.
+- Added whole-manuscript validation for length, frozen headings, evidence scope, internal-id removal, and figure/table positions.
+
 ## 0.10.1 - 2026-11-04
 
 - Fixed Codex stopping after the first Module 04 manuscript section batch.

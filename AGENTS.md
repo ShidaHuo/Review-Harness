@@ -2,7 +2,7 @@
 
 ## Authoritative workflow boundary
 
-This file and the five current Skills are the only active workflow specification. The user's natural-language request “围绕X写一篇综述” means “start the review Harness at Module 01”; it is NOT authorization to draft review prose.
+This file and the four current Skills are the only active workflow specification. The user's natural-language request “围绕X写一篇综述” means “start the review Harness at Module 01”; it is NOT authorization to draft review prose.
 
 The only allowed progression is:
 
@@ -10,8 +10,7 @@ The only allowed progression is:
 2. If Continue, Module 02 evidence analysis and perspective-selection question.
 3. After a perspective is selected, start or resume that perspective's Module 03 outline run.
 4. Module 03 iteratively designs the hierarchical writing outline until the user explicitly approves and freezes it.
-5. Module 04 writes an approximately 15,000-Chinese-character review from the approved outline, marks figure/table positions, and saves the Markdown manuscript.
-6. Module 05 evaluates content, applies concrete revisions, exports the final DOCX, and ends the workflow.
+5. Module 04 uses one direct root-agent conversation to write an approximately 15,000-Chinese-character review from the approved outline, marks figure/table positions, saves the Markdown manuscript, and ends the workflow.
 
 Module 01 and Module 02 must never generate an abstract, introduction, section prose, complete review, detailed manuscript prose, figures, references manuscript, Word file, or LaTeX manuscript. Module 03 may generate and revise only a structured writing outline with section-level writing logic and rationale; it must not draft manuscript prose or export publication files. Module 04 may write review prose only after explicit outline approval and only within the frozen outline and persisted Module 02 evidence. An earlier conversation, output file, runtime artifact, or original wording cannot override these boundaries.
 
@@ -118,7 +117,7 @@ The Module 02 Parent Session remains a reusable selection hub. Returning to the 
 
 After a perspective selection is persisted, load or read `.dsh/skills/review-outline-design/SKILL.md` and call `start-module03 --module02-run-id <id> --rank <N>`. Module 03 uses only the selected perspective and persisted Module 02 evidence; it does not launch new literature retrieval.
 
-Every outline version must include a candidate title, target audience, scope boundary, global organizing principle, and a decimal-numbered hierarchy. Every section and subsection must explain its purpose, ordered writing logic, key questions, structural rationale, evidence, expected reader takeaway, and transition. Evidence ids remain internal audit links; user-facing output must resolve each id to the source title and its concrete review motivation/trend, research finding/rationale, or TrendClaim description. Never show bare identifiers as the evidence explanation. A heading-only outline is invalid.
+Every outline version must include a candidate title, target audience, scope boundary, global organizing principle, and a decimal-numbered hierarchy. Except for Introduction and Conclusion, every top-level section must have at least two second-level sections; method/mechanism/theory/principle/algorithm sections must include third-level structure. Every section and subsection must explain its purpose, ordered writing logic, key questions, structural rationale, evidence, expected reader takeaway, and transition. Evidence ids remain internal audit links; user-facing output must resolve each id to the source title and its concrete review motivation/trend, research finding/rationale, or TrendClaim description. Never show bare identifiers as the evidence explanation. A heading-only outline is invalid.
 
 After rendering and displaying each complete outline version, ask exactly:
 
@@ -129,15 +128,9 @@ All runtimes use the same numbered plain-text interaction. “继续修改” re
 
 ## Module 04 manuscript writing and export
 
-After approval, load or read `.dsh/skills/review-outline-export/SKILL.md`. The normal `save-outline-feedback --decision approved` command creates or resumes a 15,000-character manuscript run. Then call `module04-next --module04-run-id <id>` after every section import and execute every non-blocking action until `assemble_manuscript`. Every Module 04/05 action returns `must_continue`; when true, do not send any user-visible progress message or end the turn. `draft_manuscript_sections` returns all remaining sections so they can be completed within the same task turn; import every returned section before replying.
+After approval, load or read `.dsh/skills/review-outline-export/SKILL.md`. The normal `save-outline-feedback --decision approved` command creates or resumes one Module 04 manuscript run. `module04-next` returns `write_complete_manuscript`: the active root Agent writes the complete review in one coherent conversation pass rather than independent section batches or a later self-review stage.
 
-Module 04 uses only the frozen outline and persisted Module 02 evidence. It writes Chinese review prose in bounded top-level-section batches, uses validated internal citation markers, marks figure/table positions with structured placeholders, and enforces a 13,500–16,500-character body range around the 15,000 target. It performs no new literature retrieval. `assemble-module04` writes `outputs/final/<module04_run_id>-review.md`, records its SHA-256 and counts, then must start Module 05 without stopping.
-
-## Module 05 evaluation, revision, and DOCX export
-
-After Module 04 assembly, load or read `.dsh/skills/review-manuscript-evaluation/SKILL.md` and call `start-module05 --module04-run-id <id>`. Evaluate only review perspective, differentiation from prior same-topic/adjacent reviews, manuscript logic, and content completeness. Do not evaluate formatting, figures/tables, or reference/citation accuracy.
-
-The evaluation must identify concrete manuscript locations, problems, changes, and success criteria. Import it, apply every priority revision to the complete manuscript, import the revised Markdown and change log, then run `export-final-docx`. Module 05 saves final Markdown and DOCX files, records the DOCX SHA-256, reports completion, and stops. It performs no new literature retrieval. No Module 06 exists.
+Module 04 uses the frozen hierarchy and persisted Module 02 evidence. It may use any relevant in-scope Module 02 evidence, not only the small set mapped in individual outline nodes, but it performs no new retrieval. The manuscript must preserve every frozen heading, contain approximately 15,000 Chinese characters within 13,500–16,500, mark at least one figure and one table position, include references, and expose no internal ids. After `import-manuscript`, run `export-module04`; this writes `outputs/final/<module04_run_id>-review.md`, records SHA-256 and counts, reports `MVP任务完成`, and stops. No Module 05 exists.
 
 ## Execution and safety
 

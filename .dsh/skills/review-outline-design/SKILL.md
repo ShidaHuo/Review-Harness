@@ -3,7 +3,7 @@ name: review-outline-design
 description: Design and iteratively refine an evidence-mapped hierarchical review outline for one selected Module 02 perspective.
 whenToUse: Use only after the user selects a persisted Module 02 perspective.
 metadata:
-  version: "0.10"
+  version: "0.11"
 user-invocable: true
 ---
 
@@ -44,7 +44,7 @@ When `module03-next` returns `create_outline` or `revise_outline`:
 2. do not launch a new literature search unless a later module explicitly authorizes it;
 3. create a candidate review title and explain why it fits the selected perspective;
 4. state the target audience, scope boundary, and global organizing principle;
-5. create 3–10 consecutive top-level sections, with subsections down to at most four numbering levels;
+5. create 3–10 consecutive top-level sections, with subsections down to at most four numbering levels. Except for Introduction and Conclusion, every top-level section must contain at least two direct second-level sections. Any method, mechanism, theory, principle, or algorithm top-level section must also contain at least one third-level section;
 6. include a top-level Introduction and a top-level Future Perspective/Outlook section;
 7. for every section and subsection provide purpose, ordered writing logic, key questions, structural rationale, internal evidence ids, expected takeaway, and transition;
 8. map only persisted Module 02 review, paper, or TrendClaim ids; never invent evidence ids. When displaying the outline, resolve every internal id into the source title and its specific review motivation/trend, research finding/rationale, or TrendClaim description. Never expose a bare identifier as evidence content;
@@ -60,7 +60,7 @@ After displaying each outline version, every runtime presents the same numbered 
 1. 满意，冻结大纲
 2. 继续修改
 
-- For `满意，冻结大纲`, call `save-outline-feedback --decision approved`. This automatically creates or resumes Module 04 and returns its first manuscript-writing action. Continue with `module04-next`; do not claim completion until `assemble-module04` succeeds.
+- For `满意，冻结大纲`, call `save-outline-feedback --decision approved`. This creates or resumes Module 04 and returns `write_complete_manuscript`. The root Agent writes the whole review directly, imports it once, and runs `export-module04`; do not claim completion before export succeeds.
 - For `继续修改`, ask the user for concrete free-text changes. Do not infer approval. After feedback arrives, call `save-outline-feedback --decision revise --feedback "<feedback>"`, then follow `module03-next` and produce the next version.
 - Silence, timeout, or skipped interaction leaves the run at `awaiting_outline_feedback`.
 

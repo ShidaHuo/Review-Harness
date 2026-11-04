@@ -185,6 +185,37 @@ def _validate_outline(outline: dict[str, Any], module03_run_id: str) -> None:
     if not any(token in titles for token in ("future", "outlook", "perspective", "展望", "未来")):
         raise ValueError("Outline requires a future-perspective top-level section")
 
+    top_sections = [section for section in sections if section["level"] == 1]
+    for top in top_sections:
+        number = str(top["number"])
+        title = str(top["title"]).casefold()
+        role_text = f"{title} {str(top['purpose']).casefold()}"
+        is_intro = any(token in title for token in ("introduction", "引言", "绪论"))
+        is_conclusion = any(token in title for token in ("conclusion", "summary", "结论", "总结"))
+        direct_children = [
+            section for section in sections
+            if section["level"] == 2 and str(section["number"]).rsplit(".", 1)[0] == number
+        ]
+        if not is_intro and not is_conclusion and len(direct_children) < 2:
+            raise ValueError(
+                f"Top-level section {number} requires at least two second-level sections"
+            )
+        is_method_or_mechanism = any(
+            token in role_text
+            for token in (
+                "method", "mechanism", "theoretical", "principle", "algorithm",
+                "方法", "机制", "理论", "原理", "算法",
+            )
+        )
+        has_third_level = any(
+            section["level"] == 3 and str(section["number"]).startswith(f"{number}.")
+            for section in sections
+        )
+        if is_method_or_mechanism and not has_third_level:
+            raise ValueError(
+                f"Method/mechanism section {number} requires at least one third-level section"
+            )
+
 
 def _available_evidence_ids(db_path: Path, module02_run_id: str) -> set[str]:
     with connect(db_path) as connection:
@@ -323,30 +354,17 @@ def module03_next_action(db_path: Path, module03_run_id: str) -> dict[str, Any]:
                 "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'module04_manuscript_runs'"
             ).fetchone() is not None
             manuscript = None
-            module05 = None
             if has_manuscript_table:
                 manuscript = connection.execute(
                     "SELECT id, status FROM module04_manuscript_runs WHERE module03_run_id = ?",
                     (module03_run_id,),
                 ).fetchone()
-            has_module05_table = connection.execute(
-                "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'module05_runs'"
-            ).fetchone() is not None
-            if manuscript is not None and has_module05_table:
-                module05 = connection.execute(
-                    "SELECT id, status FROM module05_runs WHERE module04_run_id = ?",
-                    (manuscript["id"],),
-                ).fetchone()
         if manuscript is None:
             action = "run_module04"
-        elif manuscript["status"] != "completed":
-            action = "continue_module04"
-        elif module05 is None:
-            action = "start_module05"
-        elif module05["status"] == "completed":
+        elif manuscript["status"] == "completed":
             action = "mvp_complete"
         else:
-            action = "continue_module05"
+            action = "continue_module04"
         blocking = False
     else:
         raise ValueError(f"Unknown Module 03 outline status: {run['status']}")
@@ -361,11 +379,8 @@ def module03_next_action(db_path: Path, module03_run_id: str) -> dict[str, Any]:
         "blocking_user_input": blocking,
         "terminal": action == "mvp_complete",
     }
-    if action in {"continue_module04", "start_module05"}:
+    if action == "continue_module04":
         result["module04_run_id"] = manuscript["id"]
-    if action == "continue_module05":
-        result["module04_run_id"] = manuscript["id"]
-        result["module05_run_id"] = module05["id"]
     if action == "revise_outline":
         with connect(db_path) as connection:
             row = connection.execute(

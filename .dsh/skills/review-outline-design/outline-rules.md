@@ -5,6 +5,8 @@
 - Use decimal numbering such as `1`, `2`, `2.1`, `2.1.1`.
 - Store sections in numeric reading order.
 - Use 3–10 top-level sections and no more than four levels.
+- Except for Introduction and Conclusion, every top-level section has at least two direct second-level sections.
+- Every method, mechanism, theory, principle, or algorithm top-level section has at least one third-level section in its subtree.
 - Number siblings consecutively and include every parent section.
 - Include a top-level Introduction and a top-level Future Perspective or Outlook section.
 - The selected Module 02 perspective determines the primary organizing axis. Do not revert to a generic materials-devices-applications catalogue unless that is the selected perspective.

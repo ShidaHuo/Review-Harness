@@ -3,7 +3,7 @@ name: research-topic-evaluation
 description: Produce a lightweight two-year research-paper snapshot for deciding whether to continue with a scientific review topic.
 whenToUse: Use when the user asks to write, prepare, plan, or assess a literature review around a scientific topic.
 metadata:
-  version: "0.10"
+  version: "0.11"
 user-invocable: true
 ---
 

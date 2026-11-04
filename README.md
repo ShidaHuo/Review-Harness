@@ -14,12 +14,11 @@ Scientific topic
 → User selects a differentiated review perspective
 → Module 03: iterative hierarchical outline design
 → User approves and freezes the outline
-→ Module 04: approximately 15,000-character review writing, figure/table position markers, and Markdown export
-→ Module 05: content evaluation, concrete revision, and final DOCX export
+→ Module 04: one direct root-agent pass for an approximately 15,000-character review, figure/table position markers, and final Markdown
 → MVP complete
 ```
 
-Modules 01 and 02 never draft review prose. Module 03 designs an outline only. After explicit approval, Module 04 writes the review manuscript within the frozen outline and persisted evidence. Module 05 evaluates perspective, differentiation, logic, and completeness, applies concrete revisions, and exports the final DOCX.
+Modules 01 and 02 never draft review prose. Module 03 designs and freezes a granular outline. After explicit approval, the root Agent writes the complete review directly in one coherent Module 04 context and exports Markdown. There is no Module 05 self-review stage.
 
 ## Features
 
@@ -33,8 +32,7 @@ Modules 01 and 02 never draft review prose. Module 03 designs an outline only. A
 - Three to five differentiated review perspectives.
 - Persistent perspective branches and optional real DeepSeek Session forks.
 - Versioned Module 03 outlines with section-level writing logic and rationale.
-- Section-batched Module 04 manuscript writing with a 15,000-character target, validated citations, figure/table position markers, and Markdown SHA-256. The conductor returns all remaining sections and `must_continue=true` to prevent Codex from stopping at internal section boundaries.
-- Module 05 content evaluation across perspective, differentiation, logic, and completeness, followed by concrete revision and final DOCX export.
+- Direct single-pass Module 04 writing with a 15,000-character target, complete frozen-heading validation, broader in-scope evidence use, figure/table position markers, and final Markdown SHA-256.
 - SQLite checkpoints for interrupted-run recovery.
 
 ## Requirements
@@ -183,24 +181,9 @@ runtime/raw/
 runtime/institutional-pdfs/
 outputs/
 outputs/final/<module04_run_id>-review.md
-outputs/final/<module05_run_id>-final-review.md
-outputs/final/<module05_run_id>-final-review.docx
 ```
 
-The Module 04 Markdown contains the approximately 15,000-character draft, validated numbered citations, and marked figure/table positions. Module 05 evaluates and revises that content, then saves the final Markdown and DOCX. The DOCX still requires human scientific review before submission.
-
-## Module 05 evaluation and final DOCX
-
-After Module 04 completes, the workflow automatically evaluates only:
-
-- whether the selected review perspective is explicit and sustained;
-- substantive differentiation from prior exact-topic or adjacent reviews;
-- manuscript argument and section logic;
-- content completeness within the declared scope.
-
-It deliberately ignores formatting, figure/table quality, and reference/citation accuracy. The evaluation names concrete manuscript locations, problems, changes, and success criteria. Every priority item must be applied before the final DOCX can be exported.
-
-The final files are produced without Microsoft Word or an extra DOCX dependency.
+The final Module 04 Markdown contains the complete approximately 15,000-character review, all frozen headings, in-scope evidence, marked figure/table positions, references, and a content SHA-256. It still requires human scientific review before submission.
 
 ## Project structure
 
@@ -209,7 +192,7 @@ AGENTS.md                              Cross-runtime workflow contract
 runtime_adapter.py                     Runtime detection and capability policy
 src/review_harness/                    Python core and CLI
 schemas/                               JSON contracts
-.dsh/skills/                           Module 01–05 Skills
+.dsh/skills/                           Module 01–04 Skills
 workflows/module02-review-landscape/   DeepSeek batch workflows
 plugin/perspective-branches/           Optional DeepSeek Session-fork plugin
 prompts/                               Structured analysis prompts
@@ -233,7 +216,7 @@ Do not commit `runtime/`, `outputs/`, PDFs, `.env`, or `OPENALEX_API_KEY.txt`.
 - OpenAlex counts may be lower bounds when a query reaches its configured page cap.
 - Semantic screening still depends on the active model, while query execution and state gates are deterministic.
 - Institutional access does not override publisher licenses or permit bulk downloading.
-- The MVP produces a content-reviewed DOCX after Module 05, but the file still requires human scientific and editorial review before submission.
+- The MVP produces a coherent Markdown review in Module 04; it does not include a separate self-review stage or DOCX export.
 
 ## Security
 

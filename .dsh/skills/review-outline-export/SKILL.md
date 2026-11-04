@@ -1,113 +1,87 @@
 ---
 name: review-manuscript-writing
 extension: .md
-version: "0.10.1"
-description: Write an approximately 15,000-Chinese-character review from the frozen Module 03 outline, mark figure/table positions, and save the final Markdown manuscript.
+version: "0.11"
+description: Write one coherent approximately 15,000-Chinese-character review directly from the frozen Module 03 outline and save it as Markdown.
 whenToUse: Use automatically after the user selects “满意，冻结大纲” in Module 03.
 metadata:
-  version: "0.10.1"
+  version: "0.11"
 user-invocable: true
 ---
 
-# Module 04: Review Manuscript Writing and Markdown Export
+# Module 04: Direct Review Manuscript Writing
 
 ## Purpose
 
-Module 04 writes a complete Chinese review manuscript from the explicitly approved Module 03 outline. The target is approximately 15,000 Chinese characters under the Python counting rule, with an accepted range of 13,500–16,500. It marks recommended figure and table positions and saves the assembled manuscript as `.md`. Completion ends the current MVP.
+Module 04 replaces section-by-section generation and the former Module 05 self-review. The active root Agent uses one continuous conversation context to write the complete Chinese review directly from the frozen Module 03 outline, mark figure/table positions, and save the final `.md` manuscript.
 
 ## Entry gate
 
-Module 04 requires:
+Module 04 requires a Module 03 run at `outline_approved`, the latest frozen outline, the selected perspective, and persisted Module 02 evidence. Do not write before explicit outline approval.
 
-- a persisted Module 03 run at `outline_approved`;
-- the latest frozen outline version;
-- the selected Module 02 perspective and evidence;
-- explicit user choice `1. 满意，冻结大纲`.
+## Direct writing action
 
-Do not draft before outline approval.
-
-## Evidence boundary
-
-Use only evidence persisted by Module 02 and mapped by the frozen outline. Do not launch new literature retrieval in Module 04. Do not invent authors, dates, DOI metadata, experimental values, claims, or references.
-
-Internal citations use `[@evidence_id]` while drafting. Python validates every id, replaces it with numbered citations in the final file, and creates a reference list from stored metadata. User-facing output must never expose raw OpenAlex or internal ids.
-
-## Section-batched writing
-
-The normal approval command automatically creates or resumes a Module 04 manuscript run. Every returned action includes `must_continue`. When it is true, complete the action, call `module04-next` again, and do not send a user-visible progress message.
+After approval:
 
 ```powershell
+python -m review_harness run-module04 --module03-run-id <id> --target-characters 15000
 python -m review_harness module04-next --module04-run-id <id>
 ```
 
-When the action is `draft_manuscript_sections`, write every returned section before replying. The Python core allocates character targets from the frozen outline and returns all remaining sections in the current action so Codex and other hosts do not treat an internal batch boundary as a user-visible stopping point. Each draft must:
+`module04-next` returns `write_complete_manuscript`. In one root-agent writing pass:
 
-- follow the frozen hierarchy and section logic;
-- synthesize evidence rather than list papers;
-- distinguish established findings, extensions, new directions, and limitations;
-- preserve negative or uncertain evidence;
-- use only validated internal citation markers;
-- avoid repeating the same background in multiple sections;
-- provide transitions consistent with the outline;
-- remain scholarly review prose rather than an outline.
+1. read the entire frozen outline and selected perspective;
+2. read the complete in-scope Module 02 evidence corpus;
+3. write the full manuscript rather than stopping at internal chapter boundaries;
+4. preserve every frozen numbered heading and its hierarchy;
+5. maintain one global thesis, terminology, voice, transitions, and conclusion;
+6. synthesize papers comparatively instead of expanding generic caution language;
+7. distinguish direct findings, cross-study interpretation, uncertainty, and proposed research directions;
+8. include an abstract, keywords, and references;
+9. mark at least one figure and one table position with titles and concrete content suggestions;
+10. never expose internal OpenAlex, review, or TrendClaim ids in user-facing prose.
 
-Save each section as `schemas/manuscript-section.schema.json` through `import-manuscript-section`.
+Module 04 may use any relevant evidence already included by Module 02 when it improves completeness, even if a particular evidence id was not attached to an individual outline node. It must remain within the frozen perspective and scope. It performs no new literature retrieval and invents no bibliographic or experimental facts.
 
-## Figures and tables
+## Granularity contract
 
-The completed manuscript must contain at least one evidence-grounded figure position and one evidence-grounded table position. Do not generate image binaries in this MVP. For every useful figure or table, provide a structured placeholder with:
+The Module 03 outline gate guarantees:
 
-- title;
-- purpose in the argument;
-- concrete content specification;
-- source evidence ids.
+- every top-level section except Introduction and Conclusion has at least two direct second-level sections;
+- method, mechanism, theory, principle, or algorithm sections contain third-level structure.
 
-The final Markdown renderer inserts visible markers such as:
+Module 04 must render every frozen section number in Markdown. Python rejects missing headings.
 
-```text
-[图 2 置于此处：器件架构与传输机制分类]
-[表 1 置于此处：代表性器件性能对比]
-```
+## Length and visual markers
 
-Each marker includes its intended content and numbered evidence sources.
+- target body: 15,000 Chinese characters;
+- accepted range: 13,500–16,500;
+- body count excludes references and marked figure/table position lines;
+- at least one figure position and one table position are required.
 
-## Length gate
+## Persistence and final export
 
-Python counts manuscript characters after removing whitespace, Markdown symbols, and internal citation markers. References and figure/table placeholder descriptions are excluded from the 15,000-character body target.
-
-- target: 15,000;
-- minimum: 13,500;
-- maximum: 16,500.
-
-If `module04-next` returns `revise_manuscript_length`, revise the named sections toward their allocated targets and re-import them. Do not assemble outside the accepted range.
-
-## Final assembly
-
-When `module04-next` returns `assemble_manuscript`, run:
+Submit one document matching `schemas/manuscript.schema.json`:
 
 ```powershell
-python -m review_harness assemble-module04 --module04-run-id <id>
+python -m review_harness import-manuscript --module04-run-id <id> --input <json>
+python -m review_harness export-module04 --module04-run-id <id>
 ```
 
-The assembler:
+The JSON contains the complete Markdown plus the internal list of Module 02 evidence ids used for audit. IDs remain outside the Markdown. Python validates length, frozen heading coverage, evidence membership, and figure/table markers.
 
-1. orders the abstract and frozen top-level sections;
-2. replaces internal evidence markers with numbered citations;
-3. inserts figure/table position markers;
-4. creates the reference list from persisted metadata;
-5. verifies the accepted body length;
-6. writes `outputs/final/<module04_run_id>-review.md` atomically;
-7. records path, SHA-256, character count, and completion state;
-8. starts Module 05 for content evaluation and revision.
+The final file is:
 
-## Cross-runtime execution
+```text
+outputs/final/<module04_run_id>-review.md
+```
 
-- DeepSeek Harness may use bounded Workflow/subagents for independent top-level sections.
-- Kiro Crew may use bounded `workflow_run` or `spawn_run` only when sections are independent.
-- Codex writes the same bounded section batches with its root agent.
+Module 04 records its SHA-256 and counts, reports `MVP任务完成`, and stops. No Module 05 exists in this simplified workflow.
 
-Every runtime follows the same Python section plans, evidence validation, length gate, assembly, and final output.
+## Runtime behavior
 
-## Current stage endpoint
+- In Codex, the root Codex conversation writes the full manuscript directly.
+- In DeepSeek Harness, the root Agent writes it directly; do not split sections into independent subagents.
+- In Kiro Crew, the current root Agent writes it directly; do not fan out sections.
 
-Module 04 completion must immediately start Module 05; it is not the final workflow state. The generated Markdown remains the input draft for content evaluation and concrete revision.
+The goal is global manuscript coherence comparable to a direct conversation, while preserving Python gates and auditable evidence provenance.

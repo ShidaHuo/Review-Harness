@@ -51,8 +51,7 @@ class RuntimeAdapterTests(unittest.TestCase):
         self.assertIn("module01-next", codex.module01_completion_gate)
         self.assertTrue(codex.module03_skill.endswith("review-outline-design\\SKILL.md") or codex.module03_skill.endswith("review-outline-design/SKILL.md"))
         self.assertTrue(codex.module04_skill.endswith("review-outline-export\\SKILL.md") or codex.module04_skill.endswith("review-outline-export/SKILL.md"))
-        self.assertTrue(codex.module05_skill.endswith("review-manuscript-evaluation\\SKILL.md") or codex.module05_skill.endswith("review-manuscript-evaluation/SKILL.md"))
-        self.assertIn("Module 05 evaluates content", codex.strict_boundary)
+        self.assertIn("one coherent approximately 15,000-character Markdown review", codex.strict_boundary)
 
 
 if __name__ == "__main__":
