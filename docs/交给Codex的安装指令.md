@@ -32,6 +32,16 @@
 
 7. 向用户汇报：仓库路径、Skill 安装结果、Python 版本、OpenAlex key 是否配置、定位检查结果，以及是否需要重启 Codex 或完成其他步骤。如果任何环节失败，写明实际错误和未完成事项。
 
+## 给用户：获取并配置 OpenAlex key
+
+1. 打开 [OpenAlex 网站](https://openalex.org/)并注册或登录账号。按照网站提示验证邮箱；未验证的邮箱对应的 key 无法使用。
+2. 在账户设置中找到 **Settings → API key**，复制自己的 key。操作界面以 OpenAlex 网站的当前显示为准。详细说明见 [OpenAlex 官方认证指南](https://help.openalex.org/api/authentication/)。
+3. **Windows 推荐方式：**打开下载的 `Review-Harness` 仓库文件夹，双击 `setup-codex.cmd`。当终端提示 `Paste your own OpenAlex API key` 时，在该本机提示处粘贴 key 并按回车。输入可能不会显示；安装器会将其写入该仓库根目录的 `OPENALEX_API_KEY.txt`。若文件已经存在，安装器不会覆盖它。
+4. **手动配置：**在 `Review-Harness` 仓库根目录创建 `OPENALEX_API_KEY.txt`，用文本编辑器只写入一行原始 key，保存为 UTF-8；不要添加引号、`OPENALEX_API_KEY=` 或额外内容。macOS / Linux 用户安装后可用此方法配置。也可以由用户自行设置 `OPENALEX_API_KEY` 环境变量。
+5. 配置后重启 Codex，并在课题工作文件夹调用 `$review-harness`。如果仍提示未配置，请让 Codex 检查**配置状态**及仓库路径，不要让它读取或显示 key。
+
+key 是私人凭据：不要粘贴到聊天、截图、公开仓库或日志中。如果泄露，请在 OpenAlex 账户设置中重新生成。OpenAlex 提供免费使用额度，实际限制和收费规则可能变化，详见 [官方定价](https://help.openalex.org/access/pricing/)。
+
 ## 使用约束
 
 - 保留下载的仓库文件夹，Skill 依赖其路径；移动后需重新运行安装。
