@@ -1,9 +1,9 @@
 ---
 name: review-outline-design
-description: Design and iteratively refine an evidence-mapped hierarchical review outline for one selected Module 02 perspective.
-whenToUse: Use only after the user selects a persisted Module 02 perspective.
+description: Design, self-evaluate, iteratively refine, and automatically freeze an evidence-mapped hierarchical review outline for the Agent-selected Module 02 perspective.
+whenToUse: Use only after Module 02 automatically selects and persists its best perspective.
 metadata:
-  version: "0.11"
+  version: "0.12"
 user-invocable: true
 ---
 
@@ -11,7 +11,7 @@ user-invocable: true
 
 ## Purpose and boundary
 
-Module 03 produces a hierarchical writing outline, explains how every section should be written, and explains why every section belongs in the structure. It iterates with the user until the user approves and freezes one version.
+Module 03 produces a hierarchical writing outline, explains how every section should be written, and explains why every section belongs in the structure. The root Agent evaluates each complete version, revises concrete weaknesses, and freezes the first version that passes all quality gates without asking the user.
 
 Module 03 does not draft an abstract, introduction, section prose, complete review, reference manuscript, figure, Word file, or LaTeX file. Outline bullets must remain planning instructions rather than manuscript paragraphs.
 
@@ -34,7 +34,7 @@ python -m review_harness start-module03 --module02-run-id <id> --rank <1..5>
 python -m review_harness module03-next --module03-run-id <id>
 ```
 
-The Module 02 Parent remains a selection hub. Each perspective has an independent Module 03 outline run and version history. Returning to the Parent and selecting another perspective must not overwrite an existing outline run.
+The Module 02 run retains every candidate perspective as an audit record. Normal progression uses only the automatically selected branch; compatibility commands may reopen another branch only when the user explicitly requests a different run.
 
 ## Outline construction
 
@@ -49,23 +49,26 @@ When `module03-next` returns `create_outline` or `revise_outline`:
 7. for every section and subsection provide purpose, ordered writing logic, key questions, structural rationale, internal evidence ids, expected takeaway, and transition;
 8. map only persisted Module 02 review, paper, or TrendClaim ids; never invent evidence ids. When displaying the outline, resolve every internal id into the source title and its specific review motivation/trend, research finding/rationale, or TrendClaim description. Never expose a bare identifier as evidence content;
 9. save one complete JSON document matching `schemas/review-outline.schema.json` with `import-outline`;
-10. render the latest version with `render-outline` and display the complete outline in chat.
+10. render the latest version with `render-outline` and display the complete outline in chat;
+11. call `module03-next` immediately and execute its `evaluate_outline` action.
 
-A revision reads the latest frozen version plus the latest user feedback. Preserve accepted parts, change only what the feedback or consistency requires, and save a new immutable version.
+A revision reads the latest version plus the latest Agent evaluation. Preserve sound parts, change only what the evaluation or consistency requires, and save a new immutable version.
 
-## User iteration
+## Agent self-iteration
 
-After displaying each outline version, every runtime presents the same numbered plain-text prompt:
+When `module03-next` returns `evaluate_outline`, evaluate the complete rendered version against all of these gates:
 
-1. 满意，冻结大纲
-2. 继续修改
+1. it fully expresses the selected perspective and stated scope;
+2. its organizing logic is materially different from the included exact or adjacent reviews;
+3. the hierarchy is complete and balanced, with no heading-only nodes or duplicated section roles;
+4. every substantive section has adequate persisted evidence, while framework and transition sections are labeled honestly;
+5. the sequence of questions, takeaways, and transitions forms one coherent review argument;
+6. the outline is granular enough to support a 13,500–16,500 Chinese-character manuscript without inventing evidence.
 
-- For `满意，冻结大纲`, call `save-outline-feedback --decision approved`. This creates or resumes Module 04 and returns `write_complete_manuscript`. The root Agent writes the whole review directly, imports it once, and runs `export-module04`; do not claim completion before export succeeds.
-- For `继续修改`, ask the user for concrete free-text changes. Do not infer approval. After feedback arrives, call `save-outline-feedback --decision revise --feedback "<feedback>"`, then follow `module03-next` and produce the next version.
-- Silence, timeout, or skipped interaction leaves the run at `awaiting_outline_feedback`.
+If any gate fails, call `save-outline-evaluation --decision revise --rationale "<concrete defects and required changes>"`, follow `module03-next`, and save a new immutable version. If every gate passes, call `save-outline-evaluation --decision approved --rationale "<why all gates pass>"`. Approval freezes the latest version, creates or resumes Module 04, and returns `write_complete_manuscript`; continue immediately.
 
-The loop may repeat without a fixed iteration limit. Never overwrite an earlier outline version.
+Do not ask the user to approve or modify the outline. Never overwrite an earlier version, and never approve merely to stop iteration. If a limitation cannot be repaired because persisted evidence is sparse, narrow the outline scope transparently and then evaluate the revised version.
 
 ## Completion
 
-`module03-next` returns `run_module04` after explicit user approval unless a manuscript run already exists. Module 04 writes the review from the frozen outline and persisted evidence. Module 03 itself remains outline-only.
+`module03-next` returns `run_module04` after Agent approval unless a manuscript run already exists. Module 04 writes the review from the frozen outline and persisted evidence. Module 03 itself remains outline-only.

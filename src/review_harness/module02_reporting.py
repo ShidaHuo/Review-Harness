@@ -9,6 +9,8 @@ from .module02_storage import (
     export_trend_claims,
     get_module02_run,
     list_perspective_branches,
+    perspectives_are_scored,
+    perspective_weighted_score,
 )
 from .storage import connect, get_topic_run
 
@@ -130,6 +132,11 @@ def _perspective_blocks(perspectives: list[dict[str, Any]]) -> str:
             f"""### 视角 {index:02d}｜{item['candidate_title']}
 
 - 核心问题：{item['central_question']}
+- 差异性评分：{item['differentiation_score']}/100
+- 完整性评分：{item['completeness_score']}/100
+- 成熟性评分：{item['maturity_score']}/100
+- 加权总分：{perspective_weighted_score(item):.2f}/100（差异性40%、完整性30%、成熟性30%）
+- 选择依据：{item['selection_rationale']}
 - 与前述综述的相同点：{_list_or_unavailable(item.get('similarities', []))}
 - 与前述综述的不同点：{_list_or_unavailable(item.get('differences', []))}
 - 建议边界：{item['recommended_scope']}
@@ -143,6 +150,10 @@ def _require_perspectives_ready(run: dict[str, Any]) -> None:
     if run.get("status") != "perspectives_ready" or len(run.get("perspectives", [])) < 3:
         raise ValueError(
             "Module 02 output is not ready; follow module02-next until perspectives_ready"
+        )
+    if not perspectives_are_scored(run["perspectives"]):
+        raise ValueError(
+            "Module 02 perspectives require differentiation, completeness, and maturity scores"
         )
 
 
@@ -274,9 +285,17 @@ def render_module02_summary(db_path: Path, module02_run_id: str, output_director
     perspectives = sorted(run.get("perspectives", []), key=lambda value: value.get("rank", 99))
     branches = list_perspective_branches(db_path, module02_run_id)
     perspective_lines = "\n".join(
-        f"{index}. **{item['candidate_title']}**：{item['central_question']}；差异：{_list_or_unavailable(item.get('differences', []))}"
+        f"{index}. **{item['candidate_title']}**：{item['central_question']}；"
+        f"加权分{perspective_weighted_score(item):.2f}；差异：{_list_or_unavailable(item.get('differences', []))}"
         for index, item in enumerate(perspectives[:5], start=1)
     ) or "尚未形成候选综述视角。"
+    selected = run.get("perspective_selection")
+    selected_text = (
+        f"视角{selected['selected_rank']}｜{selected['candidate_title']}；"
+        f"加权分{selected.get('weighted_score')}；依据：{selected.get('rationale') or '见候选视角分析'}"
+        if selected
+        else "待Agent按差异性、完整性和成熟性自动评分选择"
+    )
     branch_lines = "\n".join(_branch_line(item) for item in branches) or "- 尚未创建视角分支记录。"
 
     summary = f"""# {topic_name} · Module 02简报
@@ -297,11 +316,15 @@ def render_module02_summary(db_path: Path, module02_run_id: str, output_director
 
 {perspective_lines}
 
-## 视角聊天分支
+## Agent自动选择
+
+{selected_text}
+
+## 视角逻辑分支
 
 {branch_lines}
 
-完整逐篇证据、链接、结构、趋势和分类保存在同一Module 02 run的完整报告中。状态为`perspectives_ready`；请从随后显示的问题卡选择一个视角。每个视角都有持久逻辑分支；附有Session ID时才代表真实DeepSeek聊天fork。选择视角会创建或恢复该分支的Module 03大纲设计run；Module 02本身不得生成大纲或正文。
+完整逐篇证据、链接、结构、趋势和分类保存在同一Module 02 run的完整报告中。Agent按差异性40%、完整性30%、成熟性30%的规则自动选择最高分视角，并立即创建或恢复该视角的Module 03大纲run。其他逻辑分支保留用于审计；Module 02本身不得生成大纲或正文。
 """
     output_directory.mkdir(parents=True, exist_ok=True)
     output_path = output_directory / f"{module02_run_id}.summary.md"

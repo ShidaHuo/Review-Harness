@@ -43,7 +43,7 @@ class RuntimeAdapterTests(unittest.TestCase):
             deepseek = build_policy(root, environment={}, forced_runtime="deepseek-harness")
             kiro = build_policy(root, environment={}, forced_runtime="kiro-crew")
             codex = build_policy(root, environment={}, forced_runtime="codex")
-        self.assertIn("numbered plain text", deepseek.decision_interaction)
+        self.assertIn("Agent-autonomous", deepseek.decision_interaction)
         self.assertTrue(deepseek.supports_real_chat_forks)
         self.assertEqual(deepseek.decision_interaction, kiro.decision_interaction)
         self.assertFalse(kiro.supports_real_chat_forks)

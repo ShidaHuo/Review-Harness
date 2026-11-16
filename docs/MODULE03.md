@@ -1,12 +1,12 @@
-# Module 03：综述写作大纲设计与迭代
+# Module 03：综述写作大纲设计与自动迭代
 
 ## 入口
 
-Module 03只接受Module 02中已经选择的视角。`start-module03`验证Module 02为`perspectives_ready`且对应分支为`selected_for_module03`。每个视角对应一个独立大纲run；再次进入同一视角时恢复原run，选择其他视角时创建另一run。
+Module 03只接受Module 02自动选择的最佳视角。`start-module03`验证Module 02为`perspectives_ready`且对应分支为`selected_for_module03`。每个视角仍对应一个独立大纲run，未选分支作为审计记录保留。
 
 ## 输入证据
 
-- 所选视角的完整JSON；
+- 所选视角的完整JSON和差异性、完整性、成熟性评分；
 - Module 02纳入综述；
 - TrendClaim；
 - `trend_consistent`、`trend_extension`和`new_direction`研究论文；
@@ -30,24 +30,17 @@ Module 03不执行新的文献检索。
 
 只有标题列表不是合格大纲。
 
-## 版本和反馈
+## 版本和Agent自检
 
-`import-outline`保存不可变版本，状态进入`awaiting_outline_feedback`。完整大纲必须在聊天中显示，然后提供：
+`import-outline`保存不可变版本，状态进入`awaiting_outline_evaluation`。完整大纲必须在聊天中显示，然后由Agent检查：所选视角覆盖、与已有综述差异、层级完整性、章节平衡、证据支撑、逻辑递进、读者收获和过渡。
 
-1. 满意，冻结大纲
-2. 继续修改
+若存在具体缺陷，`save-outline-evaluation --decision revise --rationale "<缺陷和修改要求>"`将状态设为`revision_requested`。Agent读取上一版和自检理由，保存新版本并再次检查。
 
-选择继续修改后，用户用自由文本说明具体变化，`save-outline-feedback --decision revise`保存原始反馈，状态进入`revision_requested`。Agent读取上一版和反馈，保存新版本。该循环没有固定次数。
+全部质量门通过后，`save-outline-evaluation --decision approved --rationale "<通过理由>"`冻结最新版并自动创建或恢复Module 04 manuscript run。Agent不询问用户，且必须立即继续Module 04。
 
-选择满意后，`save-outline-feedback --decision approved`冻结最新版并自动创建或恢复Module 04 manuscript run。Module 04随后按章节撰写约15,000字综述并导出最终Markdown。
+## 跨运行时行为
 
-## 跨运行时交互
-
-- DeepSeek Harness：编号纯文本选择，在所选真实Session fork中迭代；
-- Kiro Crew：编号纯文本选择，有可见会话能力时使用独立会话，否则使用逻辑分支；
-- Codex：编号纯文本选择，使用SQLite逻辑分支。
-
-三种运行时共用相同SQLite版本历史和证据门禁。
+DeepSeek Harness、Kiro Crew、Codex和未知运行时均使用相同的Agent自动自检与SQLite版本历史。人工批准不再是流程门；真实机构登录等凭据步骤仍由用户完成。
 
 ## 禁止内容
 

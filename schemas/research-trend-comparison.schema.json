@@ -16,7 +16,7 @@
         "required": ["paper_id", "category", "matched_review_ids", "matched_trend_claim_ids", "matched_future_trends", "rationale", "confidence"],
         "properties": {
           "paper_id": { "type": "string", "minLength": 1 },
-          "category": { "enum": ["trend_consistent", "trend_extension", "new_direction", "excluded"] },
+          "category": { "enum": ["trend_consistent", "trend_extension", "new_direction", "review_candidate", "excluded"] },
           "matched_review_ids": { "type": "array", "items": { "type": "string" } },
           "matched_trend_claim_ids": { "type": "array", "items": { "type": "string" } },
           "matched_future_trends": { "type": "array", "items": { "type": "string" } },

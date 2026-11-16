@@ -8,7 +8,7 @@ from review_harness.module03_storage import (
     get_module03_run,
     latest_outline,
     module03_next_action,
-    record_outline_feedback,
+    record_outline_evaluation,
     save_outline_version,
     start_module03_outline,
 )
@@ -26,6 +26,7 @@ from review_harness.module02_storage import (
     save_perspectives,
     save_research_comparisons,
     save_trend_claims,
+    select_best_perspective_branch,
     select_perspective_branch,
     upsert_module02_research,
 )
@@ -115,6 +116,10 @@ class Module03Tests(unittest.TestCase):
             "differences": ["独立组织视角"],
             "recommended_scope": "测试范围",
             "risks": ["证据有限"],
+            "differentiation_score": 90 - rank,
+            "completeness_score": 85 - rank,
+            "maturity_score": 80 - rank,
+            "selection_rationale": f"视角{rank}在差异性、完整性和成熟性之间形成可审计平衡。",
         }
 
     @staticmethod
@@ -188,14 +193,24 @@ class Module03Tests(unittest.TestCase):
             root = Path(temporary_directory)
             db_path = root / "research.sqlite3"
             module02_run_id = self._module02_with_perspectives(db_path)
-            select_perspective_branch(db_path, module02_run_id, 1)
-            module03_run_id = start_module03_outline(db_path, module02_run_id, 1)
+            selected = select_best_perspective_branch(db_path, module02_run_id)
+            module03_run_id = start_module03_outline(
+                db_path, module02_run_id, selected["selected_rank"]
+            )
             outline = self._outline(module03_run_id, "Review title")
             self.assertEqual(save_outline_version(db_path, module03_run_id, outline, actor="test"), 1)
             rendered = render_outline(db_path, module03_run_id, root / "outputs").read_text(encoding="utf-8")
             self.assertIn("Evidence Paper on Reconfigurable Logic", rendered)
             self.assertNotIn("W-EVIDENCE", rendered)
-            record_outline_feedback(db_path, module03_run_id, "approved")
+            evaluation = module03_next_action(db_path, module03_run_id)
+            self.assertEqual(evaluation["action"], "evaluate_outline")
+            self.assertFalse(evaluation["blocking_user_input"])
+            record_outline_evaluation(
+                db_path,
+                module03_run_id,
+                "approved",
+                "The outline passes coverage, differentiation, evidence, and structure checks.",
+            )
             module04_run_id = start_module04_manuscript(db_path, module03_run_id)
             action = module04_next_action(db_path, module04_run_id)
             self.assertEqual(action["action"], "write_complete_manuscript")
@@ -214,12 +229,46 @@ class Module03Tests(unittest.TestCase):
             self.assertEqual(module04_next_action(db_path, module04_run_id)["action"], "mvp_complete")
             self.assertEqual(module03_next_action(db_path, module03_run_id)["action"], "mvp_complete")
 
+    def test_agent_self_review_revises_then_freezes_outline(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            db_path = Path(temporary_directory) / "research.sqlite3"
+            module02_run_id = self._module02_with_perspectives(db_path)
+            selected = select_best_perspective_branch(db_path, module02_run_id)
+            module03_run_id = start_module03_outline(
+                db_path, module02_run_id, selected["selected_rank"]
+            )
+            first = self._outline(module03_run_id, "Initial review title")
+            self.assertEqual(save_outline_version(db_path, module03_run_id, first, actor="agent"), 1)
+            record_outline_evaluation(
+                db_path,
+                module03_run_id,
+                "revise",
+                "The title does not expose the selected benchmark perspective clearly enough.",
+            )
+            revise = module03_next_action(db_path, module03_run_id)
+            self.assertEqual(revise["action"], "revise_outline")
+            self.assertIn("benchmark perspective", revise["latest_feedback"])
+
+            second = self._outline(module03_run_id, "Benchmark-centered review title")
+            self.assertEqual(save_outline_version(db_path, module03_run_id, second, actor="agent"), 2)
+            approved = record_outline_evaluation(
+                db_path,
+                module03_run_id,
+                "approved",
+                "The revised outline now passes perspective, structure, evidence, and logic checks.",
+            )
+            self.assertEqual(approved["status"], "outline_approved")
+            self.assertEqual(approved["decision_actor"], "agent")
+            self.assertEqual(module03_next_action(db_path, module03_run_id)["action"], "run_module04")
+
     def test_outline_granularity_gate_rejects_shallow_sections(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             db_path = Path(temporary_directory) / "research.sqlite3"
             module02_run_id = self._module02_with_perspectives(db_path)
-            select_perspective_branch(db_path, module02_run_id, 1)
-            module03_run_id = start_module03_outline(db_path, module02_run_id, 1)
+            selected = select_best_perspective_branch(db_path, module02_run_id)
+            module03_run_id = start_module03_outline(
+                db_path, module02_run_id, selected["selected_rank"]
+            )
             outline = self._outline(module03_run_id, "Shallow outline")
             outline["sections"] = [
                 item for item in outline["sections"]
@@ -244,6 +293,7 @@ class Module03Tests(unittest.TestCase):
             select_perspective_branch(db_path, module02_run_id, 2)
             second = start_module03_outline(db_path, module02_run_id, 2)
             self.assertNotEqual(first, second)
+            select_perspective_branch(db_path, module02_run_id, 1)
             self.assertEqual(start_module03_outline(db_path, module02_run_id, 1), first)
             self.assertEqual(get_module03_run(db_path, first)["current_version"], 0)
             self.assertEqual(get_module03_run(db_path, second)["current_version"], 0)

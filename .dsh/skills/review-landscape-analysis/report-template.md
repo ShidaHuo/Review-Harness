@@ -58,22 +58,18 @@
 - 新增研究证据：
 - 建议边界：
 - 风险与限制：
+- 差异性评分（0–100）：
+- 完整性评分（0–100）：
+- 成熟性评分（0–100）：
+- 选择依据：
 
-提出3–5个有实质差异的视角，按推荐程度排序。
+提出3–5个有实质差异的视角。风险和证据缺口必须反映在评分中。
 
-## E｜用户视角选择
+## E｜Agent自动选择
 
-After 3–5 perspectives are saved, every runtime presents one numbered plain-text option per perspective and waits for an explicit reply.
+Python按`0.40 × 差异性 + 0.30 × 完整性 + 0.30 × 成熟性`计算加权分，选择最高分视角；同分时选择较低rank。保存选择依据，将对应分支标记为`selected_for_module03`，并立即创建或恢复Module 03大纲run。
 
-Example labels:
-
-- 视角1｜<短标题>
-- 视角2｜<短标题>
-- ……
-
-选择一个视角会将对应分支标记为`selected_for_module03`，并创建或恢复该视角独立的Module 03大纲设计run。DeepSeek Harness在真实子Session中继续；Kiro Crew或Codex没有可见分支时在逻辑分支中继续。用户返回Parent后仍可选择其他视角，各大纲版本互不覆盖。
-
-Module 02不写正文。
+不显示用户视角选择，不等待回复。未选逻辑分支作为审计记录保留。Module 02不写大纲或正文。
 
 ## 输出要求
 

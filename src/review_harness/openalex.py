@@ -9,7 +9,7 @@ from urllib.parse import urlencode
 from urllib.request import Request, urlopen
 
 OPENALEX_WORKS_URL = "https://api.openalex.org/works"
-DEFAULT_OPENALEX_KEY_FILE = Path("OPENALEX_API_KEY.txt")
+DEFAULT_OPENALEX_KEY_FILE = Path(__file__).resolve().parents[2] / "OPENALEX_API_KEY.txt"
 
 
 def load_openalex_api_key(key_file: Path | None = None) -> str | None:

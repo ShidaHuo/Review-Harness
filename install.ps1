@@ -30,6 +30,34 @@ if ($Runtime -ne "auto") {
 }
 & $pythonCommand.Source @adapterArgs
 
+if ($Runtime -eq "codex") {
+    $codexSkillSource = Join-Path $ProjectRoot "codex-skill\review-harness"
+    if (-not (Test-Path -LiteralPath $codexSkillSource -PathType Container)) {
+        throw "Bundled Codex Skill was not found: $codexSkillSource"
+    }
+
+    $codexHome = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $HOME ".codex" }
+    $codexSkillsRoot = Join-Path $codexHome "skills"
+    $codexSkillDestination = Join-Path $codexSkillsRoot "review-harness"
+    $managedMarker = Join-Path $codexSkillDestination ".review-harness-managed"
+
+    New-Item -ItemType Directory -Path $codexSkillsRoot -Force | Out-Null
+    if (Test-Path -LiteralPath $codexSkillDestination -PathType Container) {
+        if (-not (Test-Path -LiteralPath $managedMarker -PathType Leaf)) {
+            throw "Refusing to overwrite an unmanaged Codex Skill: $codexSkillDestination"
+        }
+        Get-ChildItem -LiteralPath $codexSkillSource -Force | ForEach-Object {
+            Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $codexSkillDestination $_.Name) -Recurse -Force
+        }
+    } else {
+        Copy-Item -LiteralPath $codexSkillSource -Destination $codexSkillDestination -Recurse
+    }
+    $projectRootPointer = Join-Path $codexSkillDestination "project-root.txt"
+    $utf8WithoutBom = [System.Text.UTF8Encoding]::new($false)
+    [System.IO.File]::WriteAllText($projectRootPointer, "$ProjectRoot`n", $utf8WithoutBom)
+    Write-Host "Installed global Codex Skill: $codexSkillDestination"
+}
+
 if ($InstallDeepSeekPlugin) {
     $dsh = $null
     if ($DshCliPath) {
@@ -59,4 +87,8 @@ if (Test-Path -LiteralPath $keyFile -PathType Leaf) {
     Write-Host "Create OPENALEX_API_KEY.txt with one line containing your own key, or set OPENALEX_API_KEY."
 }
 
-Write-Host "Installation complete. Open this repository as the workspace in your supported agent host."
+if ($Runtime -eq "codex") {
+    Write-Host "Installation complete. Restart Codex, then invoke `$review-harness from any workspace."
+} else {
+    Write-Host "Installation complete. Open this repository as the workspace in your supported agent host."
+}

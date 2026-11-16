@@ -2,7 +2,7 @@
 
 This DeepSeek Harness bundle registers `create_review_perspective_branches` and creates real persistent child Sessions through `sessionController.fork()`.
 
-After Module 02 saves 1–5 perspectives, the root Agent passes every rank and title. The tool:
+After Module 02 saves 3–5 perspectives, this optional compatibility tool can create visible audit Sessions for every rank. It is not part of the normal automatic Codex/Kiro progression. The tool:
 
 1. forks the current Parent Session once per perspective;
 2. renames each child to `Module 03 · 视角N · <title>`;
@@ -11,7 +11,7 @@ After Module 02 saves 1–5 perspectives, the root Agent passes every rank and t
 5. accepts `existing_session_id` during reconstruction so retries do not duplicate successful forks;
 6. returns partial successes and per-rank errors if one fork fails, allowing successful mappings to be persisted before retrying only missing ranks.
 
-The Parent remains the reusable selection hub. Selecting a perspective persists its rank and authorizes the independent Module 03 outline run for that branch. The plugin itself still sends no prompt and never drafts prose.
+The Python core automatically selects one perspective using differentiation, completeness, and maturity scores and starts its Module 03 run. These optional child Sessions are audit/navigation aids only; they do not choose a perspective, send prompts, or draft prose.
 
 ## Installation
 

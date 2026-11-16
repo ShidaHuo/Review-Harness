@@ -11,6 +11,7 @@ from review_harness.storage import (
     finish_search_run,
     get_topic_run,
     module01_next_action,
+    save_agent_decision,
     save_decision,
     save_module01_relevance,
     start_search_run,
@@ -93,6 +94,9 @@ class StorageAndServiceTests(unittest.TestCase):
             screening_action = module01_next_action(db_path, run_id)
             self.assertEqual(screening_action["action"], "screen_papers")
             self.assertEqual(screening_action["paper_count"], 1)
+            self.assertTrue(screening_action["must_continue"])
+            self.assertIn("import-module01-relevance", screening_action["continuation_instruction"])
+            self.assertTrue(module01_next_action(db_path, run_id)["must_continue"])
 
             status = status_for_run(db_path, run_id)
             self.assertEqual(status["paper_counts_by_retrieval_scope"]["direct"], 1)
@@ -106,8 +110,9 @@ class StorageAndServiceTests(unittest.TestCase):
             }]), 1)
             self.assertEqual(status_for_run(db_path, run_id)["paper_counts_by_relevance"]["direct"], 1)
             ready_action = module01_next_action(db_path, run_id)
-            self.assertEqual(ready_action["action"], "synthesize_report_and_collect_decision")
-            self.assertTrue(ready_action["blocking_user_input"])
+            self.assertEqual(ready_action["action"], "synthesize_report_and_decide")
+            self.assertFalse(ready_action["blocking_user_input"])
+            self.assertTrue(ready_action["must_continue"])
 
             report_path = render_report(db_path, run_id, output_root)
             report = report_path.read_text(encoding="utf-8")
@@ -116,11 +121,56 @@ class StorageAndServiceTests(unittest.TestCase):
             self.assertNotIn("相关综述", report)
             self.assertNotIn("中科院一区", report)
             self.assertIn("insufficient_evidence", report)
+            self.assertIn("Agent 自动决策", report)
+            self.assertNotIn("用户决策", report)
 
-            decision = save_decision(db_path, run_id, "approved")
+            decision = save_agent_decision(
+                db_path,
+                run_id,
+                "recommended",
+                "Recent evidence supports a coherent and differentiated review.",
+            )
             self.assertTrue(decision["module_02_permitted"])
+            self.assertEqual(decision["decision_actor"], "agent")
             self.assertEqual(status_for_run(db_path, run_id)["run"]["status"], "approved")
             self.assertEqual(module01_next_action(db_path, run_id)["action"], "start_module02")
+
+    def test_agent_can_end_module01_without_user_input(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            db_path = Path(temporary_directory) / "research.sqlite3"
+            run_id = create_topic_run(db_path, "weak topic", {
+                "schema_version": "0.1.0",
+                "queries": [{
+                    "id": "direct-01",
+                    "scope": "direct",
+                    "provider": "openalex",
+                    "query": "weak topic",
+                }],
+            })
+            search_id = start_search_run(
+                db_path,
+                topic_run_id=run_id,
+                query_id="direct-01",
+                from_date="2024-11-09",
+                to_date="2026-11-09",
+                max_pages=1,
+                raw_directory=db_path.parent / "raw",
+            )
+            finish_search_run(db_path, search_id, records_received=0)
+            action = module01_next_action(db_path, run_id)
+            self.assertEqual(action["action"], "synthesize_report_and_decide")
+            self.assertFalse(action["blocking_user_input"])
+            decision = save_agent_decision(
+                db_path,
+                run_id,
+                "insufficient_evidence",
+                "No recent research corpus supports a complete review.",
+            )
+            self.assertFalse(decision["module_02_permitted"])
+            self.assertEqual(decision["decision_actor"], "agent")
+            terminal = module01_next_action(db_path, run_id)
+            self.assertEqual(terminal["action"], "module01_complete")
+            self.assertTrue(terminal["terminal"])
 
     def test_search_budget_is_enforced(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -214,7 +264,7 @@ class StorageAndServiceTests(unittest.TestCase):
                     query_id="agent-supplied-query",
                     client=FakeOpenAlexClient(),
                 )
-    def test_report_and_approval_require_semantic_screening(self) -> None:
+    def test_report_and_continue_decision_require_semantic_screening(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             root = Path(temporary_directory)
             db_path = root / "research.sqlite3"
@@ -236,8 +286,20 @@ class StorageAndServiceTests(unittest.TestCase):
             )
             with self.assertRaisesRegex(ValueError, "semantic screening"):
                 render_report(db_path, run_id, root / "outputs")
-            with self.assertRaisesRegex(ValueError, "semantically unclassified"):
-                save_decision(db_path, run_id, "approved")
+            with self.assertRaisesRegex(ValueError, "retrieval and semantic screening"):
+                save_agent_decision(
+                    db_path,
+                    run_id,
+                    "insufficient_evidence",
+                    "The Agent cannot reject before completing semantic screening.",
+                )
+            with self.assertRaisesRegex(ValueError, "retrieval and semantic screening"):
+                save_agent_decision(
+                    db_path,
+                    run_id,
+                    "recommended",
+                    "The topic would continue if semantic screening were complete.",
+                )
     def test_create_or_resume_reuses_unfinished_same_topic(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             db_path = Path(temporary_directory) / "research.sqlite3"

@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS module03_outline_feedback (
     target_version INTEGER NOT NULL,
     decision TEXT NOT NULL,
     feedback TEXT,
+    actor TEXT NOT NULL DEFAULT 'agent',
     created_at TEXT NOT NULL
 );
 """
@@ -46,6 +47,14 @@ def init_module03_schema(db_path: Path) -> None:
     init_module02_schema(db_path)
     with connect(db_path) as connection:
         connection.executescript(MODULE03_SCHEMA_SQL)
+        feedback_columns = {
+            row["name"]
+            for row in connection.execute("PRAGMA table_info(module03_outline_feedback)")
+        }
+        if "actor" not in feedback_columns:
+            connection.execute(
+                "ALTER TABLE module03_outline_feedback ADD COLUMN actor TEXT NOT NULL DEFAULT 'user'"
+            )
 
 
 def start_module03_outline(db_path: Path, module02_run_id: str, perspective_rank: int) -> str:
@@ -281,7 +290,7 @@ def save_outline_version(
         connection.execute(
             """
             UPDATE module03_outline_runs
-            SET current_version = ?, status = 'awaiting_outline_feedback', updated_at = ?
+            SET current_version = ?, status = 'awaiting_outline_evaluation', updated_at = ?
             WHERE id = ?
             """,
             (next_version, now, module03_run_id),
@@ -289,28 +298,33 @@ def save_outline_version(
     return next_version
 
 
-def record_outline_feedback(
+def _record_outline_decision(
     db_path: Path,
     module03_run_id: str,
     decision: str,
-    feedback: str | None = None,
+    feedback: str | None,
+    *,
+    actor: str,
+    require_rationale: bool,
 ) -> dict[str, Any]:
     run = get_module03_run(db_path, module03_run_id)
-    if run["status"] != "awaiting_outline_feedback":
-        raise ValueError("Outline feedback requires a displayed outline awaiting feedback")
+    if run["status"] not in {"awaiting_outline_evaluation", "awaiting_outline_feedback"}:
+        raise ValueError("Outline decision requires a rendered outline awaiting evaluation")
     if decision not in {"approved", "revise"}:
         raise ValueError("Outline decision must be approved or revise")
     normalized_feedback = (feedback or "").strip() or None
     if decision == "revise" and normalized_feedback is None:
-        raise ValueError("A revision decision requires concrete user feedback")
+        raise ValueError("A revision decision requires concrete feedback")
+    if require_rationale and normalized_feedback is None:
+        raise ValueError("An autonomous outline evaluation requires a concrete rationale")
     now = utc_now()
     status = "outline_approved" if decision == "approved" else "revision_requested"
     with connect(db_path) as connection:
         connection.execute(
             """
             INSERT INTO module03_outline_feedback(
-                id, module03_run_id, target_version, decision, feedback, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?)
+                id, module03_run_id, target_version, decision, feedback, actor, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 new_id("outlinefeedback"),
@@ -318,6 +332,7 @@ def record_outline_feedback(
                 run["current_version"],
                 decision,
                 normalized_feedback,
+                actor,
                 now,
             ),
         )
@@ -334,7 +349,42 @@ def record_outline_feedback(
         "version": run["current_version"],
         "status": status,
         "feedback": normalized_feedback,
+        "decision_actor": actor,
     }
+
+
+def record_outline_evaluation(
+    db_path: Path,
+    module03_run_id: str,
+    decision: str,
+    rationale: str,
+) -> dict[str, Any]:
+    """Persist the root Agent's self-review of the latest outline version."""
+    return _record_outline_decision(
+        db_path,
+        module03_run_id,
+        decision,
+        rationale,
+        actor="agent",
+        require_rationale=True,
+    )
+
+
+def record_outline_feedback(
+    db_path: Path,
+    module03_run_id: str,
+    decision: str,
+    feedback: str | None = None,
+) -> dict[str, Any]:
+    """Compatibility path for historical user-driven outline runs."""
+    return _record_outline_decision(
+        db_path,
+        module03_run_id,
+        decision,
+        feedback,
+        actor="user",
+        require_rationale=False,
+    )
 
 
 def module03_next_action(db_path: Path, module03_run_id: str) -> dict[str, Any]:
@@ -345,9 +395,9 @@ def module03_next_action(db_path: Path, module03_run_id: str) -> dict[str, Any]:
     elif run["status"] == "revision_requested":
         action = "revise_outline"
         blocking = False
-    elif run["status"] == "awaiting_outline_feedback":
-        action = "collect_outline_feedback"
-        blocking = True
+    elif run["status"] in {"awaiting_outline_evaluation", "awaiting_outline_feedback"}:
+        action = "evaluate_outline"
+        blocking = False
     elif run["status"] == "outline_approved":
         with connect(db_path) as connection:
             has_manuscript_table = connection.execute(
@@ -381,6 +431,17 @@ def module03_next_action(db_path: Path, module03_run_id: str) -> dict[str, Any]:
     }
     if action == "continue_module04":
         result["module04_run_id"] = manuscript["id"]
+    if action == "evaluate_outline":
+        result["evaluation_criteria"] = [
+            "coverage of the selected perspective and stated scope",
+            "differentiation from existing reviews",
+            "hierarchical completeness and section balance",
+            "evidence support for every substantive section",
+            "logical progression, reader takeaways, and transitions",
+        ]
+        result["decision_command"] = (
+            "save-outline-evaluation --decision approved|revise --rationale <concrete assessment>"
+        )
     if action == "revise_outline":
         with connect(db_path) as connection:
             row = connection.execute(

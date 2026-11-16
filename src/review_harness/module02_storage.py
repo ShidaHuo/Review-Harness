@@ -7,7 +7,7 @@ from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import Any
 
-from .models import RESEARCH_WORK_TYPES, new_id, rolling_two_year_window, utc_now
+from .models import RESEARCH_WORK_TYPES, new_id, normalize_doi, rolling_two_year_window, utc_now
 from .query_plans import build_review_query_plan, query_by_id, review_query_plan_sha256
 from .reference_storage import nature_index_snapshot_for_topic
 from .storage import connect, get_topic_run, init_db
@@ -29,6 +29,8 @@ CREATE TABLE IF NOT EXISTS module02_runs (
     research_from_date TEXT,
     research_to_date TEXT,
     perspectives_json TEXT,
+    selected_perspective_rank INTEGER,
+    perspective_selection_json TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -70,6 +72,8 @@ CREATE TABLE IF NOT EXISTS module02_reviews (
     citation_as_of TEXT NOT NULL,
     paper_url TEXT NOT NULL,
     provider_work_type TEXT,
+    promoted_from_paper_id TEXT,
+    promoted_at TEXT,
     fulltext_access_status TEXT NOT NULL DEFAULT 'not_checked',
     fulltext_source_url TEXT,
     pdf_path TEXT,
@@ -169,6 +173,8 @@ def init_module02_schema(db_path: Path) -> None:
             "screening_confidence": "TEXT",
             "screening_reason": "TEXT",
             "screened_at": "TEXT",
+            "promoted_from_paper_id": "TEXT",
+            "promoted_at": "TEXT",
         }
         for column, declaration in migrations.items():
             if column not in existing_columns:
@@ -187,6 +193,8 @@ def init_module02_schema(db_path: Path) -> None:
             "review_query_plan_sha256": "TEXT",
             "trend_claims_finalized": "INTEGER NOT NULL DEFAULT 0",
             "research_comparison_finalized": "INTEGER NOT NULL DEFAULT 0",
+            "selected_perspective_rank": "INTEGER",
+            "perspective_selection_json": "TEXT",
         }
         for column, declaration in run_migrations.items():
             if column not in run_columns:
@@ -254,7 +262,7 @@ def create_module02_run(db_path: Path, topic_run_id: str) -> str:
             (topic_run_id,),
         ).fetchone()
         if decision is None:
-            raise PermissionError("Module 02 requires an explicit Module 01 decision")
+            raise PermissionError("Module 02 requires a recorded Module 01 decision")
         if decision["user_decision"] != "approved" or not decision["module_02_permitted"]:
             raise PermissionError("Module 01 ended; Module 02 is not permitted")
         existing = connection.execute(
@@ -303,6 +311,9 @@ def get_module02_run(db_path: Path, module02_run_id: str) -> dict[str, Any]:
         raise KeyError(f"Unknown Module 02 run: {module02_run_id}")
     result = dict(row)
     result["perspectives"] = json.loads(result.pop("perspectives_json") or "[]")
+    result["perspective_selection"] = json.loads(
+        result.pop("perspective_selection_json") or "null"
+    )
     result["review_query_plan"] = json.loads(result.pop("review_query_plan_json") or "[]")
     return result
 
@@ -424,6 +435,232 @@ def finish_module02_search(
                 search_id,
             ),
         )
+
+
+def promote_research_reviews(
+    db_path: Path,
+    module02_run_id: str,
+    candidates: list[dict[str, str]],
+) -> dict[str, Any]:
+    """Move missed reviews from research comparison back into review screening.
+
+    Promotion preserves shared paper metadata and raw provider responses, removes the
+    records from research comparison, and invalidates only the downstream analysis
+    that depends on the incomplete review baseline.
+    """
+    get_module02_run(db_path, module02_run_id)
+    if not candidates:
+        raise ValueError("At least one missed review candidate is required")
+
+    normalized_candidates: list[tuple[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    for candidate in candidates:
+        paper_id = str(candidate.get("paper_id") or "").strip()
+        doi = normalize_doi(candidate.get("doi"))
+        if bool(paper_id) == bool(doi):
+            raise ValueError("Each promoted review requires exactly one of paper_id or doi")
+        identifier = ("paper_id", paper_id) if paper_id else ("doi", str(doi))
+        if identifier in seen:
+            raise ValueError(f"Duplicate promoted review identifier: {identifier[1]}")
+        seen.add(identifier)
+        normalized_candidates.append(identifier)
+
+    promoted: list[dict[str, Any]] = []
+    with connect(db_path) as connection:
+        run = connection.execute(
+            "SELECT perspectives_json FROM module02_runs WHERE id = ?",
+            (module02_run_id,),
+        ).fetchone()
+        if run is None:
+            raise KeyError(f"Unknown Module 02 run: {module02_run_id}")
+        if run["perspectives_json"]:
+            raise ValueError(
+                "Cannot change the review baseline after perspectives exist; start a new Module 02 run"
+            )
+
+        resolved_paper_ids: set[str] = set()
+        for field, value in normalized_candidates:
+            paper_column = "id" if field == "paper_id" else "doi"
+            paper = connection.execute(
+                f"""
+                SELECT p.*, r.category
+                FROM papers p
+                JOIN module02_research r ON r.paper_id = p.id
+                WHERE r.module02_run_id = ? AND p.{paper_column} = ?
+                """,
+                (module02_run_id, value),
+            ).fetchone()
+            if paper is None:
+                raise KeyError(
+                    f"No research candidate matches {field}={value!r} in this Module 02 run"
+                )
+            if paper["id"] in resolved_paper_ids:
+                raise ValueError(f"The same research candidate was supplied more than once: {paper['id']}")
+            resolved_paper_ids.add(str(paper["id"]))
+
+            existing = connection.execute(
+                """
+                SELECT id FROM module02_reviews
+                WHERE module02_run_id = ?
+                  AND ((openalex_id IS NOT NULL AND openalex_id = ?)
+                       OR (doi IS NOT NULL AND doi = ?)
+                       OR (normalized_title = ? AND publication_year = ?))
+                LIMIT 1
+                """,
+                (
+                    module02_run_id,
+                    paper["openalex_id"],
+                    paper["doi"],
+                    paper["normalized_title"],
+                    paper["publication_year"],
+                ),
+            ).fetchone()
+            review_id = str(existing["id"]) if existing else new_id("review")
+            link = f"https://doi.org/{paper['doi']}" if paper["doi"] else paper["openalex_id"]
+            if not link:
+                raise ValueError(f"Promoted review has no stable link: {paper['title']}")
+            promoted_at = utc_now()
+
+            if existing:
+                connection.execute(
+                    """
+                    UPDATE module02_reviews
+                    SET openalex_id = COALESCE(openalex_id, ?), doi = COALESCE(doi, ?),
+                        title = ?, normalized_title = ?, abstract = ?, publication_date = ?,
+                        publication_year = ?, journal = ?, issn_l = ?, cited_by_count = ?,
+                        citation_as_of = ?, paper_url = ?, provider_work_type = ?,
+                        relevance_status = 'pending', review_match_level = NULL,
+                        review_relevance_score = NULL, matched_keywords_json = NULL,
+                        screening_confidence = NULL, screening_reason = NULL, screened_at = NULL,
+                        promoted_from_paper_id = ?, promoted_at = ?
+                    WHERE id = ?
+                    """,
+                    (
+                        paper["openalex_id"],
+                        paper["doi"],
+                        paper["title"],
+                        paper["normalized_title"],
+                        paper["abstract"],
+                        paper["publication_date"],
+                        paper["publication_year"],
+                        paper["source_name"],
+                        paper["issn_l"],
+                        paper["cited_by_count"],
+                        paper["retrieved_at"],
+                        link,
+                        paper["work_type"],
+                        paper["id"],
+                        promoted_at,
+                        review_id,
+                    ),
+                )
+            else:
+                connection.execute(
+                    """
+                    INSERT INTO module02_reviews(
+                        id, module02_run_id, openalex_id, doi, title, normalized_title,
+                        abstract, publication_date, publication_year, journal, issn_l,
+                        cited_by_count, citation_as_of, paper_url, provider_work_type,
+                        promoted_from_paper_id, promoted_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        review_id,
+                        module02_run_id,
+                        paper["openalex_id"],
+                        paper["doi"],
+                        paper["title"],
+                        paper["normalized_title"],
+                        paper["abstract"],
+                        paper["publication_date"],
+                        paper["publication_year"],
+                        paper["source_name"],
+                        paper["issn_l"],
+                        paper["cited_by_count"],
+                        paper["retrieved_at"],
+                        link,
+                        paper["work_type"],
+                        paper["id"],
+                        promoted_at,
+                    ),
+                )
+
+            connection.execute(
+                "DELETE FROM module02_research WHERE module02_run_id = ? AND paper_id = ?",
+                (module02_run_id, paper["id"]),
+            )
+            promoted.append(
+                {
+                    "paper_id": paper["id"],
+                    "review_id": review_id,
+                    "title": paper["title"],
+                    "doi": paper["doi"],
+                    "previous_category": paper["category"],
+                }
+            )
+
+        # A newly discovered review can change exact/adjacent inclusion, every
+        # TrendClaim, the time anchor, and all subsequent research comparisons.
+        connection.execute(
+            """
+            UPDATE module02_reviews
+            SET relevance_status = 'pending'
+            WHERE module02_run_id = ?
+            """,
+            (module02_run_id,),
+        )
+        connection.execute(
+            "DELETE FROM module02_trend_claims WHERE module02_run_id = ?",
+            (module02_run_id,),
+        )
+        connection.execute(
+            """
+            UPDATE module02_research
+            SET category = 'pending', matched_review_ids_json = '[]',
+                matched_trend_claim_ids_json = '[]', matched_future_trends_json = '[]',
+                rationale = NULL, confidence = NULL, classified_at = NULL
+            WHERE module02_run_id = ?
+            """,
+            (module02_run_id,),
+        )
+        connection.execute(
+            """
+            UPDATE module02_runs
+            SET status = 'review_screening', trend_claims_finalized = 0,
+                research_comparison_finalized = 0, newest_review_id = NULL,
+                newest_review_date = NULL, trend_baseline_review_id = NULL,
+                trend_baseline_review_date = NULL, research_from_date = NULL,
+                research_to_date = NULL, selected_perspective_rank = NULL,
+                perspective_selection_json = NULL, updated_at = ?
+            WHERE id = ?
+            """,
+            (utc_now(), module02_run_id),
+        )
+
+    return {
+        "module02_run_id": module02_run_id,
+        "promoted_reviews": promoted,
+        "promoted_count": len(promoted),
+        "research_records_removed": len(promoted),
+        "downstream_reset": True,
+        "raw_evidence_preserved": True,
+    }
+
+
+def promote_research_review(
+    db_path: Path,
+    module02_run_id: str,
+    paper_id: str | None = None,
+    *,
+    doi: str | None = None,
+) -> dict[str, Any]:
+    """Compatibility wrapper for promoting one missed review."""
+    candidate: dict[str, str] = {}
+    if paper_id:
+        candidate["paper_id"] = paper_id
+    if doi:
+        candidate["doi"] = doi
+    return promote_research_reviews(db_path, module02_run_id, [candidate])
 
 
 def upsert_review(db_path: Path, module02_run_id: str, review: dict[str, Any]) -> tuple[str, bool]:
@@ -696,7 +933,9 @@ def save_fulltext_access(db_path: Path, module02_run_id: str, records: list[dict
                     research_comparison_finalized = 0, newest_review_id = NULL,
                     newest_review_date = NULL, trend_baseline_review_id = NULL,
                     trend_baseline_review_date = NULL, research_from_date = NULL,
-                    research_to_date = NULL, perspectives_json = NULL, updated_at = ?
+                    research_to_date = NULL, perspectives_json = NULL,
+                    selected_perspective_rank = NULL, perspective_selection_json = NULL,
+                    updated_at = ?
                 WHERE id = ?
                 """,
                 (utc_now(), module02_run_id),
@@ -981,7 +1220,7 @@ def plan_module02_research_queries(db_path: Path, module02_run_id: str) -> list[
             ).fetchall()
             module02_row = connection.execute(
                 """
-                SELECT status, truncated FROM module02_searches
+                SELECT status, truncated, from_date, to_date FROM module02_searches
                 WHERE module02_run_id = ? AND phase = 'research'
                   AND (query_id = ? OR (query_id IS NULL AND scope = ? AND query = ?))
                 ORDER BY started_at DESC LIMIT 1
@@ -995,7 +1234,10 @@ def plan_module02_research_queries(db_path: Path, module02_run_id: str) -> list[
                 and row["records_received"] < 50
                 for row in module01_rows
             )
-            if module02_row and module02_row["status"] == "completed" and not module02_row["truncated"]:
+            if (module02_row and module02_row["status"] == "completed" and not module02_row["truncated"]
+                    and module02_row["from_date"] and module02_row["to_date"]
+                    and module02_row["from_date"] <= run["research_from_date"]
+                    and module02_row["to_date"] >= run["research_to_date"]):
                 action = "already_supplemented"
                 reason = "A complete Module 02 search already covers this query."
             elif covered:
@@ -1132,7 +1374,13 @@ def export_research(db_path: Path, module02_run_id: str) -> list[dict[str, Any]]
 
 
 def save_research_comparisons(db_path: Path, module02_run_id: str, papers: list[dict[str, Any]]) -> int:
-    valid_categories = {"trend_consistent", "trend_extension", "new_direction", "excluded"}
+    valid_categories = {
+        "trend_consistent",
+        "trend_extension",
+        "new_direction",
+        "review_candidate",
+        "excluded",
+    }
     updated = 0
     with connect(db_path) as connection:
         available_trends = {
@@ -1153,6 +1401,14 @@ def save_research_comparisons(db_path: Path, module02_run_id: str, papers: list[
                 raise ValueError(f"{category} requires at least one matched TrendClaim")
             if category == "new_direction" and trend_ids:
                 raise ValueError("new_direction must not claim a matched TrendClaim")
+            if category == "review_candidate" and (
+                trend_ids
+                or paper.get("matched_review_ids", [])
+                or paper.get("matched_future_trends", [])
+            ):
+                raise ValueError(
+                    "review_candidate must not claim matched reviews, TrendClaims, or future trends"
+                )
             cursor = connection.execute(
                 """
                 UPDATE module02_research
@@ -1182,17 +1438,57 @@ def save_research_comparisons(db_path: Path, module02_run_id: str, papers: list[
     return updated
 
 
+PERSPECTIVE_SCORE_WEIGHTS = {
+    "differentiation_score": 0.40,
+    "completeness_score": 0.30,
+    "maturity_score": 0.30,
+}
+
+
+def perspective_weighted_score(perspective: dict[str, Any]) -> float:
+    score = 0.0
+    for field, weight in PERSPECTIVE_SCORE_WEIGHTS.items():
+        value = perspective.get(field)
+        if not isinstance(value, (int, float)) or isinstance(value, bool) or not 0 <= value <= 100:
+            raise ValueError(f"Perspective {field} must be a number from 0 to 100")
+        score += float(value) * weight
+    if not str(perspective.get("selection_rationale") or "").strip():
+        raise ValueError("Each perspective requires a concrete selection_rationale")
+    return round(score, 2)
+
+
+def perspectives_are_scored(perspectives: list[dict[str, Any]]) -> bool:
+    if not 3 <= len(perspectives) <= 5:
+        return False
+    try:
+        for perspective in perspectives:
+            perspective_weighted_score(perspective)
+    except ValueError:
+        return False
+    return True
+
+
 def save_perspectives(db_path: Path, module02_run_id: str, perspectives: list[dict[str, Any]]) -> None:
     if not 3 <= len(perspectives) <= 5:
         raise ValueError("Module 02 requires between 3 and 5 review perspectives")
     ranks = [item["rank"] for item in perspectives]
     if len(set(ranks)) != len(ranks) or any(rank < 1 or rank > 5 for rank in ranks):
         raise ValueError("Perspective ranks must be unique integers from 1 to 5")
+    for perspective in perspectives:
+        perspective_weighted_score(perspective)
     run = get_module02_run(db_path, module02_run_id)
     if not run.get("research_comparison_finalized"):
         raise ValueError("Finalize Module 02 research comparison before saving perspectives")
     now = utc_now()
     with connect(db_path) as connection:
+        connection.execute(
+            """
+            UPDATE module03_perspective_branches
+            SET status = 'available', selected_at = NULL
+            WHERE module02_run_id = ?
+            """,
+            (module02_run_id,),
+        )
         for perspective in perspectives:
             connection.execute(
                 """
@@ -1217,7 +1513,9 @@ def save_perspectives(db_path: Path, module02_run_id: str, perspectives: list[di
         connection.execute(
             """
             UPDATE module02_runs
-            SET perspectives_json = ?, status = 'perspectives_ready', updated_at = ?
+            SET perspectives_json = ?, status = 'perspectives_ready',
+                selected_perspective_rank = NULL, perspective_selection_json = NULL,
+                updated_at = ?
             WHERE id = ?
             """,
             (json.dumps(perspectives, ensure_ascii=False), now, module02_run_id),
@@ -1293,28 +1591,39 @@ def rebuild_perspective_selection(db_path: Path, module02_run_id: str) -> dict[s
     branches = list_perspective_branches(db_path, module02_run_id)
     if not branches:
         raise ValueError("No saved perspectives are available for selection")
+    scored = [
+        {
+            "rank": branch["perspective_rank"],
+            "label": f"视角{branch['perspective_rank']}｜{branch['perspective_title']}",
+            "weighted_score": perspective_weighted_score(branch["perspective"]),
+            "differentiation_score": branch["perspective"]["differentiation_score"],
+            "completeness_score": branch["perspective"]["completeness_score"],
+            "maturity_score": branch["perspective"]["maturity_score"],
+            "selection_rationale": branch["perspective"]["selection_rationale"],
+            "branch_status": branch["status"],
+            "module03_run_id": branch.get("module03_run_id"),
+        }
+        for branch in branches
+    ]
+    best = max(scored, key=lambda item: (item["weighted_score"], -item["rank"]))
     return {
         "module02_run_id": module02_run_id,
-        "question": "请选择一个综述写作视角。选择后将为该视角启动或恢复Module 03大纲设计。",
-        "options": [
-            {
-                "rank": branch["perspective_rank"],
-                "label": f"视角{branch['perspective_rank']}｜{branch['perspective_title']}",
-                "branch_status": branch["status"],
-                "session_id": branch.get("dsh_session_id"),
-                "module03_run_id": branch.get("module03_run_id"),
-                "outline_status": branch.get("module03_outline_status"),
-                "outline_version": branch.get("module03_outline_version"),
-            }
-            for branch in branches
-        ],
-        "selected_rank": None,
-        "module03_status": "outline_available",
-        "message": "请选择视角以开始Module 03大纲设计",
+        "criterion": "40% differentiation + 30% completeness + 30% maturity",
+        "candidates": scored,
+        "recommended_rank": best["rank"],
+        "message": "Agent将按差异性、完整性和成熟度自动选择最高分视角。",
     }
 
 
-def select_perspective_branch(db_path: Path, module02_run_id: str, rank: int) -> dict[str, Any]:
+def _persist_perspective_selection(
+    db_path: Path,
+    module02_run_id: str,
+    rank: int,
+    *,
+    mode: str,
+    weighted_score: float | None = None,
+) -> dict[str, Any]:
+    get_module02_run(db_path, module02_run_id)
     with connect(db_path) as connection:
         row = connection.execute(
             """
@@ -1329,19 +1638,75 @@ def select_perspective_branch(db_path: Path, module02_run_id: str, rank: int) ->
         connection.execute(
             """
             UPDATE module03_perspective_branches
+            SET status = 'available', selected_at = NULL
+            WHERE module02_run_id = ?
+            """,
+            (module02_run_id,),
+        )
+        connection.execute(
+            """
+            UPDATE module03_perspective_branches
             SET status = 'selected_for_module03', selected_at = ?
             WHERE id = ?
             """,
             (selected_at, row["id"]),
         )
+        perspective = json.loads(row["perspective_json"])
+        selection = {
+            "mode": mode,
+            "selected_rank": rank,
+            "candidate_title": row["perspective_title"],
+            "weighted_score": weighted_score,
+            "criterion": "40% differentiation + 30% completeness + 30% maturity",
+            "rationale": perspective.get("selection_rationale"),
+            "selected_at": selected_at,
+        }
+        connection.execute(
+            """
+            UPDATE module02_runs
+            SET selected_perspective_rank = ?, perspective_selection_json = ?, updated_at = ?
+            WHERE id = ?
+            """,
+            (rank, json.dumps(selection, ensure_ascii=False), selected_at, module02_run_id),
+        )
     result = dict(row)
+    result.pop("perspective_json", None)
     result["status"] = "selected_for_module03"
     result["selected_at"] = selected_at
-    result["perspective"] = json.loads(result.pop("perspective_json"))
+    result["perspective"] = perspective
     result["selected_rank"] = rank
+    result["selection"] = selection
     result["module03_status"] = "outline_ready"
-    result["message"] = "Module 03大纲设计已授权"
+    result["message"] = "Module 03大纲设计已由Agent自动授权"
     return result
+
+
+def select_best_perspective_branch(db_path: Path, module02_run_id: str) -> dict[str, Any]:
+    run = get_module02_run(db_path, module02_run_id)
+    if run["status"] != "perspectives_ready" or len(run.get("perspectives", [])) < 3:
+        raise ValueError("Automatic perspective selection requires 3-5 ready perspectives")
+    ranked = sorted(
+        run["perspectives"],
+        key=lambda item: (-perspective_weighted_score(item), item["rank"]),
+    )
+    best = ranked[0]
+    return _persist_perspective_selection(
+        db_path,
+        module02_run_id,
+        best["rank"],
+        mode="agent_auto",
+        weighted_score=perspective_weighted_score(best),
+    )
+
+
+def select_perspective_branch(db_path: Path, module02_run_id: str, rank: int) -> dict[str, Any]:
+    """Compatibility path for explicitly selecting an existing branch."""
+    return _persist_perspective_selection(
+        db_path,
+        module02_run_id,
+        rank,
+        mode="explicit_compatibility",
+    )
 
 
 def finalize_research_comparison(db_path: Path, module02_run_id: str) -> dict[str, Any]:
@@ -1363,6 +1728,32 @@ def finalize_research_comparison(db_path: Path, module02_run_id: str) -> dict[st
         ).fetchone()[0]
         if pending:
             raise ValueError(f"Cannot finalize research comparison: {pending} papers remain pending")
+        review_candidates = connection.execute(
+            """
+            SELECT COUNT(*)
+            FROM module02_research mr
+            JOIN papers p ON p.id = mr.paper_id
+            WHERE mr.module02_run_id = ?
+              AND (
+                  mr.category = 'review_candidate'
+                  OR EXISTS (
+                      SELECT 1 FROM module02_reviews rv
+                      WHERE rv.module02_run_id = mr.module02_run_id
+                        AND (
+                            (p.openalex_id IS NOT NULL AND rv.openalex_id = p.openalex_id)
+                            OR (p.doi IS NOT NULL AND rv.doi = p.doi)
+                            OR (rv.normalized_title = p.normalized_title
+                                AND rv.publication_year = p.publication_year)
+                        )
+                  )
+              )
+            """,
+            (module02_run_id,),
+        ).fetchone()[0]
+        if review_candidates:
+            raise ValueError(
+                f"Cannot finalize research comparison: {review_candidates} review candidates must be promoted"
+            )
         count = connection.execute(
             "SELECT COUNT(*) FROM module02_research WHERE module02_run_id = ?",
             (module02_run_id,),
@@ -1395,16 +1786,115 @@ def module02_next_action(db_path: Path, module02_run_id: str) -> dict[str, Any]:
             """,
             (module02_run_id,),
         ).fetchone()[0]
+        review_candidates = connection.execute(
+            """
+            SELECT p.id AS paper_id, p.title, p.doi, p.openalex_id, mr.rationale,
+                   CASE
+                       WHEN mr.category = 'review_candidate' THEN 'semantic_comparator'
+                       ELSE 'duplicate_review_identity'
+                   END AS detection_source
+            FROM module02_research mr
+            JOIN papers p ON p.id = mr.paper_id
+            WHERE mr.module02_run_id = ?
+              AND (
+                  mr.category = 'review_candidate'
+                  OR EXISTS (
+                      SELECT 1 FROM module02_reviews rv
+                      WHERE rv.module02_run_id = mr.module02_run_id
+                        AND (
+                            (p.openalex_id IS NOT NULL AND rv.openalex_id = p.openalex_id)
+                            OR (p.doi IS NOT NULL AND rv.doi = p.doi)
+                            OR (rv.normalized_title = p.normalized_title
+                                AND rv.publication_year = p.publication_year)
+                        )
+                  )
+              )
+            ORDER BY p.publication_date DESC, p.title
+            """,
+            (module02_run_id,),
+        ).fetchall()
+    if review_candidates:
+        return {
+            "module02_run_id": module02_run_id,
+            "action": "promote_review_candidates",
+            "blocking_user_input": False,
+            "terminal": False,
+            "reviews": [dict(row) for row in review_candidates],
+            "command": "promote-research-reviews --module02-run-id <id> --input <json>",
+            "note": (
+                "Move every listed record into review screening in one batch before any "
+                "research comparison is finalized."
+            ),
+        }
+    if (
+        run.get("status") == "perspectives_ready"
+        and len(run.get("perspectives", [])) >= 3
+        and not perspectives_are_scored(run["perspectives"])
+    ):
+        return {
+            "module02_run_id": module02_run_id,
+            "action": "score_perspectives",
+            "blocking_user_input": False,
+            "terminal": False,
+            "perspectives": run["perspectives"],
+            "required_scores": [
+                "differentiation_score",
+                "completeness_score",
+                "maturity_score",
+                "selection_rationale",
+            ],
+        }
     if (
         run.get("status") == "perspectives_ready"
         and len(run.get("perspectives", [])) >= 3
         and not unresolved_access
     ):
+        with connect(db_path) as connection:
+            selected = connection.execute(
+                """
+                SELECT perspective_rank FROM module03_perspective_branches
+                WHERE module02_run_id = ? AND status = 'selected_for_module03'
+                ORDER BY selected_at DESC LIMIT 1
+                """,
+                (module02_run_id,),
+            ).fetchone()
+            module03_run = None
+            if selected is not None:
+                has_outline_table = connection.execute(
+                    "SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'module03_outline_runs'"
+                ).fetchone() is not None
+                if has_outline_table:
+                    module03_run = connection.execute(
+                        """
+                        SELECT id, status FROM module03_outline_runs
+                        WHERE module02_run_id = ? AND perspective_rank = ?
+                        """,
+                        (module02_run_id, selected["perspective_rank"]),
+                    ).fetchone()
+        if selected is None:
+            return {
+                "module02_run_id": module02_run_id,
+                "action": "select_best_perspective",
+                "blocking_user_input": False,
+                "terminal": False,
+                "criterion": "40% differentiation + 30% completeness + 30% maturity",
+            }
+        if module03_run is None:
+            return {
+                "module02_run_id": module02_run_id,
+                "action": "start_module03",
+                "blocking_user_input": False,
+                "terminal": False,
+                "rank": selected["perspective_rank"],
+            }
         return {
             "module02_run_id": module02_run_id,
-            "action": "render_outputs_and_select_perspective",
-            "blocking_user_input": True,
-            "status": "perspectives_ready",
+            "action": "module03_started",
+            "blocking_user_input": False,
+            "terminal": True,
+            "rank": selected["perspective_rank"],
+            "module03_run_id": module03_run["id"],
+            "module03_status": module03_run["status"],
         }
     with connect(db_path) as connection:
         searches = connection.execute(
@@ -1493,11 +1983,7 @@ def module02_next_action(db_path: Path, module02_run_id: str) -> dict[str, Any]:
                     }
                     for row in access_required
                 ],
-                "prompt": [
-                    "1. 我将在学校官方页面登录并下载PDF",
-                    "2. 学校没有订阅，跳过全文",
-                    "3. 不使用学校权限，按摘要继续",
-                ],
+                "prompt": "请下载列表中每篇论文的合法全文 PDF 并提供文件；收到后登记对应文件并继续工作流。",
                 "security": "Never enter institution credentials, MFA codes, or cookies in chat.",
             }
 
@@ -1575,7 +2061,8 @@ def module02_next_action(db_path: Path, module02_run_id: str) -> dict[str, Any]:
 
     return {
         "module02_run_id": module02_run_id,
-        "action": "render_outputs_and_select_perspective",
-        "blocking_user_input": True,
-        "status": "perspectives_ready",
+        "action": "select_best_perspective",
+        "blocking_user_input": False,
+        "terminal": False,
+        "criterion": "40% differentiation + 30% completeness + 30% maturity",
     }

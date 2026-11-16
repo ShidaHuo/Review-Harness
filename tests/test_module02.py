@@ -20,6 +20,7 @@ from review_harness.module02_storage import (
     list_perspective_branches,
     module02_next_action,
     plan_module02_research_queries,
+    promote_research_reviews,
     rebuild_perspective_selection,
     save_fulltext_access,
     save_perspectives,
@@ -27,7 +28,8 @@ from review_harness.module02_storage import (
     save_review_analyses,
     save_review_screening,
     save_trend_claims,
-    select_perspective_branch,
+    select_best_perspective_branch,
+    upsert_module02_research,
     upsert_review,
 )
 from review_harness.reference_storage import save_nature_index_snapshot
@@ -122,11 +124,11 @@ class Module02Tests(unittest.TestCase):
         finish_search_run(db_path, search_id, records_received=records_received)
         return run_id
 
-    def test_module02_requires_approval(self) -> None:
+    def test_module02_requires_continue_decision(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
             db_path = Path(temporary_directory) / "research.sqlite3"
             run_id = self._topic_run(db_path)
-            with self.assertRaisesRegex(PermissionError, "explicit Module 01 decision"):
+            with self.assertRaisesRegex(PermissionError, "recorded Module 01 decision"):
                 create_module02_run(db_path, run_id)
             save_decision(db_path, run_id, "rejected")
             with self.assertRaisesRegex(PermissionError, "not permitted"):
@@ -222,6 +224,10 @@ class Module02Tests(unittest.TestCase):
                 "differences": ["Centers ultraviolet constraints"],
                 "recommended_scope": "UV materials, encoding, calibration, and benchmarks",
                 "risks": ["Small exact-topic corpus"],
+                "differentiation_score": 85,
+                "completeness_score": 80,
+                "maturity_score": 90,
+                "selection_rationale": "Strong maturity but a narrower exact-topic corpus limits completeness.",
             }, {
                 "rank": 2,
                 "candidate_title": "Reliability benchmarks for UV computational spectrometers",
@@ -232,6 +238,10 @@ class Module02Tests(unittest.TestCase):
                 "differences": ["Centers measurement reliability"],
                 "recommended_scope": "Calibration drift, noise, and benchmark spectra",
                 "risks": ["Limited raw measurements"],
+                "differentiation_score": 96,
+                "completeness_score": 92,
+                "maturity_score": 88,
+                "selection_rationale": "The benchmark framing is distinct, broad enough, and supported by mature methods.",
             }, {
                 "rank": 3,
                 "candidate_title": "Manufacturing pathways for UV computational spectrometers",
@@ -242,6 +252,10 @@ class Module02Tests(unittest.TestCase):
                 "differences": ["Centers manufacturability"],
                 "recommended_scope": "Scalable fabrication and integration",
                 "risks": ["Limited yield reporting"],
+                "differentiation_score": 70,
+                "completeness_score": 95,
+                "maturity_score": 90,
+                "selection_rationale": "The scope is complete but less differentiated from manufacturing reviews.",
             }])
             self.assertEqual(get_module02_run(db_path, module02_run_id)["status"], "perspectives_ready")
             branches = list_perspective_branches(db_path, module02_run_id)
@@ -253,21 +267,23 @@ class Module02Tests(unittest.TestCase):
                 {"rank": 3, "session_id": "session-perspective-3"},
             ])
             rebuilt = rebuild_perspective_selection(db_path, module02_run_id)
-            self.assertEqual(len(rebuilt["options"]), 3)
-            self.assertEqual(rebuilt["message"], "请选择视角以开始Module 03大纲设计")
-            selected = select_perspective_branch(db_path, module02_run_id, 1)
+            self.assertEqual(len(rebuilt["candidates"]), 3)
+            self.assertEqual(rebuilt["recommended_rank"], 2)
+            self.assertEqual(module02_next_action(db_path, module02_run_id)["action"], "select_best_perspective")
+            selected = select_best_perspective_branch(db_path, module02_run_id)
             self.assertEqual(selected["status"], "selected_for_module03")
-            self.assertEqual(selected["dsh_session_id"], "session-perspective-1")
-            self.assertEqual(selected["message"], "Module 03大纲设计已授权")
-            second = select_perspective_branch(db_path, module02_run_id, 2)
-            self.assertEqual(second["dsh_session_id"], "session-perspective-2")
-            third = select_perspective_branch(db_path, module02_run_id, 3)
-            self.assertEqual(third["dsh_session_id"], "session-perspective-3")
+            self.assertEqual(selected["selected_rank"], 2)
+            self.assertEqual(selected["dsh_session_id"], "session-perspective-2")
+            self.assertEqual(selected["selection"]["mode"], "agent_auto")
+            self.assertEqual(selected["message"], "Module 03大纲设计已由Agent自动授权")
+            self.assertEqual(module02_next_action(db_path, module02_run_id)["action"], "start_module03")
             selected_branches = list_perspective_branches(db_path, module02_run_id)
-            self.assertTrue(all(branch["status"] == "selected_for_module03" for branch in selected_branches))
+            self.assertEqual(
+                [branch["perspective_rank"] for branch in selected_branches if branch["status"] == "selected_for_module03"],
+                [2],
+            )
             rebuilt_after = rebuild_perspective_selection(db_path, module02_run_id)
-            self.assertTrue(all(option["branch_status"] == "selected_for_module03" for option in rebuilt_after["options"]))
-            self.assertEqual(rebuilt_after["message"], "请选择视角以开始Module 03大纲设计")
+            self.assertEqual(rebuilt_after["recommended_rank"], 2)
 
             report_path = render_module02_report(db_path, module02_run_id, root / "outputs")
             report = report_path.read_text(encoding="utf-8")
@@ -332,6 +348,10 @@ class Module02Tests(unittest.TestCase):
                 "differences": ["No prior topic-specific review was found"],
                 "recommended_scope": "Use the Module 01 two-year research corpus",
                 "risks": ["No review baseline exists"],
+                "differentiation_score": 95,
+                "completeness_score": 85,
+                "maturity_score": 70,
+                "selection_rationale": "A first focused synthesis is highly differentiated with adequate research coverage.",
             }, {
                 "rank": 2,
                 "candidate_title": "Methods and benchmarks in the emerging topic",
@@ -342,6 +362,10 @@ class Module02Tests(unittest.TestCase):
                 "differences": ["Builds a benchmark taxonomy without a review baseline"],
                 "recommended_scope": "Methods and evaluation",
                 "risks": ["Sparse evidence"],
+                "differentiation_score": 85,
+                "completeness_score": 90,
+                "maturity_score": 75,
+                "selection_rationale": "The method taxonomy is complete but rests on a less mature evidence base.",
             }, {
                 "rank": 3,
                 "candidate_title": "Applications and unresolved boundaries",
@@ -352,12 +376,196 @@ class Module02Tests(unittest.TestCase):
                 "differences": ["Maps applications directly from research clusters"],
                 "recommended_scope": "Applications and limitations",
                 "risks": ["No review baseline exists"],
+                "differentiation_score": 88,
+                "completeness_score": 76,
+                "maturity_score": 68,
+                "selection_rationale": "Application mapping is distinct but less complete and mature.",
             }])
             self.assertEqual(len(list_perspective_branches(db_path, module02_run_id)), 3)
             rebuilt = rebuild_perspective_selection(db_path, module02_run_id)
-            self.assertEqual(rebuilt["options"][0]["session_id"], None)
-            selected = select_perspective_branch(db_path, module02_run_id, 1)
-            self.assertEqual(selected["message"], "Module 03大纲设计已授权")
+            self.assertEqual(rebuilt["recommended_rank"], 1)
+            selected = select_best_perspective_branch(db_path, module02_run_id)
+            self.assertEqual(selected["selected_rank"], 1)
+            self.assertEqual(selected["message"], "Module 03大纲设计已由Agent自动授权")
+
+    def test_duplicate_review_identity_is_promoted_before_other_module02_work(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            db_path = Path(temporary_directory) / "research.sqlite3"
+            run_id = self._topic_run(db_path)
+            save_decision(db_path, run_id, "approved")
+            module02_run_id = create_module02_run(db_path, run_id)
+            paper = {
+                "paper_id": "W-DUPLICATE-REVIEW",
+                "openalex_id": "https://openalex.org/W-DUPLICATE-REVIEW",
+                "doi": "10.1115/1.4069965",
+                "title": "A Review of Through-Silicon Via Inspection and Metrology Technology",
+                "normalized_title": "a review of through silicon via inspection and metrology technology",
+                "abstract": "A review of TSV inspection methods.",
+                "publication_date": "2025-08-01",
+                "publication_year": 2025,
+                "work_type": "article",
+                "source_name": "Journal of Electronic Packaging",
+                "issn_l": None,
+                "cited_by_count": 1,
+                "source_provider": "openalex",
+                "retrieved_at": "2026-11-03T00:00:00+00:00",
+            }
+            upsert_module02_research(
+                db_path,
+                module02_run_id,
+                paper,
+                origin="module02",
+                scope="direct",
+            )
+            upsert_review(db_path, module02_run_id, {
+                "openalex_id": paper["openalex_id"],
+                "doi": paper["doi"],
+                "title": paper["title"],
+                "normalized_title": paper["normalized_title"],
+                "abstract": paper["abstract"],
+                "publication_date": paper["publication_date"],
+                "publication_year": paper["publication_year"],
+                "journal": paper["source_name"],
+                "issn_l": None,
+                "cited_by_count": 1,
+                "citation_as_of": "2026-11-03T00:00:00+00:00",
+                "paper_url": "https://doi.org/10.1115/1.4069965",
+                "provider_work_type": "article",
+            })
+
+            action = module02_next_action(db_path, module02_run_id)
+            self.assertEqual(action["action"], "promote_review_candidates")
+            self.assertEqual(action["reviews"][0]["detection_source"], "duplicate_review_identity")
+            result = promote_research_reviews(
+                db_path,
+                module02_run_id,
+                [{"paper_id": "W-DUPLICATE-REVIEW"}],
+            )
+            self.assertEqual(result["promoted_count"], 1)
+            self.assertEqual(export_research(db_path, module02_run_id), [])
+            self.assertEqual(len(export_reviews(db_path, module02_run_id)), 1)
+
+    def test_missed_review_is_promoted_from_research_and_accepts_pdf(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_directory:
+            root = Path(temporary_directory)
+            db_path = root / "research.sqlite3"
+            run_id = self._topic_run(db_path)
+            save_decision(db_path, run_id, "approved")
+            module02_run_id = create_module02_run(db_path, run_id)
+
+            review_search = module02_next_action(db_path, module02_run_id)
+            for query in review_search["queries"]:
+                run_review_search(
+                    db_path=db_path,
+                    raw_root=root / "raw",
+                    module02_run_id=module02_run_id,
+                    query_id=query["id"],
+                    client=FakeReviewClient(),
+                )
+            original_review = export_reviews(db_path, module02_run_id)[0]
+            save_review_screening(db_path, module02_run_id, [{
+                "review_id": original_review["id"],
+                "match_level": "adjacent",
+                "relevance_score": 0.7,
+                "matched_keywords": ["TSV"],
+                "confidence": "high",
+                "reason": "Adjacent baseline review.",
+            }])
+            save_fulltext_access(db_path, module02_run_id, [{
+                "review_id": original_review["id"],
+                "status": "skipped",
+                "source_url": original_review["paper_url"],
+                "pdf_path": None,
+                "license": None,
+                "note": "Abstract-only baseline for the test.",
+            }])
+            save_review_analyses(db_path, module02_run_id, [{
+                "review_id": original_review["id"],
+                "review_match_level": "adjacent",
+                "nature_index_status": "no",
+                "fulltext_access_status": "skipped",
+                "evidence_level": "abstract_only",
+                "review_reason": "Adjacent background synthesis.",
+                "structure": [],
+                "future_trends": [],
+                "source_urls": [original_review["paper_url"]],
+                "limitations": ["No registered PDF"],
+            }])
+            save_trend_claims(db_path, module02_run_id, [])
+            finalize_review_anchor(db_path, module02_run_id, as_of=date(2026, 11, 3))
+
+            paper_id, _ = upsert_module02_research(
+                db_path,
+                module02_run_id,
+                {
+                    "paper_id": "W-MISSED-REVIEW",
+                    "openalex_id": "https://openalex.org/W-MISSED-REVIEW",
+                    "doi": "10.1115/1.4069965",
+                    "title": "A Review of Through-Silicon Via Inspection and Metrology Technology",
+                    "normalized_title": "a review of through silicon via inspection and metrology technology",
+                    "abstract": "This review surveys inspection and metrology methods for TSV packaging.",
+                    "publication_date": "2025-08-01",
+                    "publication_year": 2025,
+                    "work_type": "article",
+                    "source_name": "Journal of Electronic Packaging",
+                    "issn_l": None,
+                    "cited_by_count": 1,
+                    "source_provider": "openalex",
+                    "retrieved_at": "2026-11-03T00:00:00+00:00",
+                },
+                origin="module02",
+                scope="direct",
+            )
+            save_research_comparisons(db_path, module02_run_id, [{
+                "paper_id": paper_id,
+                "category": "review_candidate",
+                "matched_review_ids": [],
+                "matched_trend_claim_ids": [],
+                "matched_future_trends": [],
+                "rationale": "The title and abstract explicitly identify a review article.",
+                "confidence": "high",
+            }])
+            promote_action = module02_next_action(db_path, module02_run_id)
+            self.assertEqual(promote_action["action"], "promote_review_candidates")
+            self.assertEqual(promote_action["reviews"][0]["doi"], "10.1115/1.4069965")
+
+            promoted = promote_research_reviews(
+                db_path,
+                module02_run_id,
+                [{"doi": "https://doi.org/10.1115/1.4069965"}],
+            )
+            self.assertEqual(promoted["promoted_count"], 1)
+            self.assertTrue(promoted["raw_evidence_preserved"])
+            self.assertEqual(export_research(db_path, module02_run_id), [])
+            reviews = export_reviews(db_path, module02_run_id)
+            promoted_review = next(item for item in reviews if item["doi"] == "10.1115/1.4069965")
+            self.assertEqual(promoted_review["promoted_from_paper_id"], "W-MISSED-REVIEW")
+            self.assertEqual(module02_next_action(db_path, module02_run_id)["action"], "screen_reviews")
+
+            save_review_screening(db_path, module02_run_id, [
+                {
+                    "review_id": item["id"],
+                    "match_level": "exact" if item["id"] == promoted_review["id"] else "adjacent",
+                    "relevance_score": 1.0 if item["id"] == promoted_review["id"] else 0.7,
+                    "matched_keywords": ["TSV", "inspection"],
+                    "confidence": "high",
+                    "reason": "Complete-topic review" if item["id"] == promoted_review["id"] else "Adjacent review",
+                }
+                for item in reviews
+            ])
+            pdf_path = root / "missed-review.pdf"
+            pdf_path.write_bytes(b"%PDF-1.4\n% promoted review fixture\n")
+            save_fulltext_access(db_path, module02_run_id, [{
+                "review_id": promoted_review["id"],
+                "status": "institutional_downloaded",
+                "source_url": "https://doi.org/10.1115/1.4069965",
+                "pdf_path": str(pdf_path.resolve()),
+                "license": "institutional-reading-access",
+                "note": "User supplied an entitled copy.",
+            }])
+            next_action = module02_next_action(db_path, module02_run_id)
+            self.assertEqual(next_action["action"], "analyze_reviews")
+            self.assertEqual(next_action["reviews"][0]["id"], promoted_review["id"])
 
     def test_time_anchor_and_trend_baseline_are_separate(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_directory:
@@ -638,7 +846,8 @@ class Module02Tests(unittest.TestCase):
             access_action = module02_next_action(db_path, module02_run_id)
             self.assertEqual(access_action["action"], "request_institutional_access")
             self.assertTrue(access_action["blocking_user_input"])
-            self.assertEqual(len(access_action["prompt"]), 3)
+            self.assertIn("PDF", access_action["prompt"])
+            self.assertEqual(access_action["reviews"][0]["title"], review["title"])
             with self.assertRaisesRegex(ValueError, "Resolve institutional access choice"):
                 save_review_analyses(db_path, module02_run_id, [{
                     "review_id": review["id"],

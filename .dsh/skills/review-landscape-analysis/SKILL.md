@@ -1,9 +1,9 @@
 ---
 name: review-landscape-analysis
 description: Analyze topic-specific review papers, then compare post-review research against normalized trend claims to propose differentiated review angles.
-whenToUse: Use only after Module 01 is explicitly approved by the user.
+whenToUse: Use only after Module 01 records an Agent recommendation to continue.
 metadata:
-  version: "0.11"
+  version: "0.12"
 user-invocable: true
 ---
 
@@ -15,9 +15,9 @@ Before entering Module 02, run `python runtime_adapter.py` and use its orchestra
 
 Read the latest Module 01 decision from SQLite.
 
-- `rejected`: stop and do not run Module 02.
-- `approved`: create or resume one Module 02 run.
-- missing, timeout, or custom answer: remain pending.
+- Agent recommendation `recommended`: create or resume one Module 02 run.
+- `reframe_required`, `insufficient_evidence`, or `not_recommended`: stop; Module 02 is not permitted.
+- missing decision: return to Module 01 and complete its automatic decision action.
 
 Reuse the approved Module 01 TopicProfile, its research-paper records, semantic labels, and its attached Nature Index snapshot. Do not regenerate the topic boundary or fetch a second Nature Index directory when the Module 01 snapshot is still the verified source for this run.
 
@@ -25,7 +25,7 @@ Read `review-search-rules.md`, `fulltext-access.md`, and `report-template.md`.
 
 ## Mandatory cross-runtime conductor
 
-After creating or resuming a Module 02 run, call `module02-next --module02-run-id <id>` after every persisted step. Execute the returned non-blocking action and call `module02-next` again. Do not end a turn with a progress-only message while `blocking_user_input` is false. Continue until the action is `render_outputs_and_select_perspective`, then render both outputs and present the perspective selection. A real user-operated SSO page or `request_institutional_access` may pause the loop; provider failure may stop with an explicit recoverable checkpoint. When no legal open PDF exists, persist `login_required` and offer the numbered institutional-access choice before any abstract-only downgrade.
+After creating or resuming a Module 02 run, call `module02-next --module02-run-id <id>` after every persisted step. Execute the returned non-blocking action and call `module02-next` again. Do not end a turn with a progress-only message while `blocking_user_input` is false. Continue through `select_best_perspective`: render both outputs, score every perspective, call `select-best-perspective`, and immediately enter the returned Module 03 run. A real user-operated SSO page or `request_institutional_access` may still pause the loop because credentials and entitlement are human-only; provider failure may stop with an explicit recoverable checkpoint. When no legal open PDF exists, persist `login_required` and offer the numbered institutional-access choice before any abstract-only downgrade.
 
 The Python core refuses final Module 02 reports before `perspectives_ready`, refuses perspectives before research comparison is finalized, and exposes the next mandatory action identically to DeepSeek Harness, Kiro Crew, and Codex.
 
@@ -58,7 +58,7 @@ Maintain two separate references:
 
 These may be different reviews. All valid TrendClaims from all included full-text reviews remain available for comparison.
 
-If no related review exists, enter `no_related_reviews`: use the Module 01 two-year window, skip trend-consistent/trend-extension classification, analyze the included research as `new_direction`, and still produce three to five evidence-backed first-review perspectives. The no-review branch must continue through perspective persistence, chat-branch creation, and user perspective selection; it must not stop after reporting that no review exists.
+If no related review exists, enter `no_related_reviews`: use the Module 01 two-year window, skip trend-consistent/trend-extension classification, analyze the included research as `new_direction`, and still produce three to five evidence-backed first-review perspectives. The no-review branch must continue through perspective persistence, automatic scoring and selection, and Module 03 startup; it must not stop after reporting that no review exists.
 
 ## Phase D: reuse and gap-only research retrieval
 
@@ -79,13 +79,22 @@ Export research batches of 25 records by default. Classify each as:
 - `trend_consistent`: realizes or validates one or more TrendClaims;
 - `trend_extension`: materially extends one or more TrendClaims;
 - `new_direction`: relevant but matches no TrendClaim;
+- `review_candidate`: the record is actually a review-like synthesis missed by review discovery; assign no matched ids and explain the title/abstract evidence;
 - `excluded`: not sufficiently related.
 
-Trend-consistent and trend-extension records must name valid TrendClaim ids. New-direction records must not claim a matched TrendClaim.
+Trend-consistent and trend-extension records must name valid TrendClaim ids. New-direction and review-candidate records must not claim a matched TrendClaim.
+
+When any `review_candidate` exists, `module02-next` returns `promote_review_candidates`. Export all candidates into one JSON payload and call `promote-research-reviews`; the Python core moves them out of research comparison, returns every review to semantic screening, invalidates TrendClaims/anchors/research classifications that used the incomplete baseline, and preserves raw evidence. Re-screen the complete review set before registering a user-provided lawful PDF with `import-fulltext-access`. Never continue research comparison while a review candidate remains.
 
 ## Phase F: differentiated review angles
 
-Propose three to five angles. Each includes candidate title, organizing question, supporting review/research ids, similarities, substantive differences, recommended scope, and evidence/overlap risks. Prioritize trend extensions and new directions.
+Propose three to five angles. Each includes candidate title, organizing question, supporting review/research ids, similarities, substantive differences, recommended scope, evidence/overlap risks, and three 0–100 scores:
+
+- `differentiation_score`: distance from the organization, claims, and scope of existing exact or adjacent reviews;
+- `completeness_score`: whether persisted evidence can support a balanced, end-to-end review within the proposed scope;
+- `maturity_score`: whether the concepts, methods, comparisons, and open questions are mature enough for synthesis rather than speculation.
+
+Add a concrete `selection_rationale` for each perspective. The Python core computes `0.40 × differentiation + 0.30 × completeness + 0.30 × maturity` and selects the highest score, breaking ties by lower persisted rank. Scores must reflect risks and evidence gaps rather than hide them. Prioritize trend extensions and new directions only when they still support a complete and mature review.
 
 ## Final output
 
@@ -96,19 +105,15 @@ Generate two outputs:
 
 Display only the concise brief by default and provide the full artifact path. Then:
 
-1. save the perspectives so their SQLite logical branch records exist in every runtime;
-2. apply the adapter policy:
-   - DeepSeek Harness: call `create_review_perspective_branches`; when rebuilding, pass persisted Session IDs as `existing_session_id`, save returned mappings with `attach-perspective-sessions`, and retry only missing/failed ranks;
-   - Kiro Crew: create visible peer sessions only if a genuine persistent session tool is mounted; otherwise keep logical branches;
-   - Codex or unknown: keep logical branches unless a genuine persistent visible-session API is available;
-3. present one numbered plain-text option per perspective in every runtime, such as `1. 视角1｜评测基准与可靠性`, then stop until the user replies;
-4. on selection, run `select-perspective --rank <N>`, which creates or resumes that perspective's Module 03 outline run;
-5. DeepSeek Harness directs the user to the selected real child Session; Kiro Crew and Codex without visible branches continue in the selected logical branch;
-6. load or read `review-outline-design` and begin its outline-only iteration;
-7. leave all other branches available. When the user returns to this Parent and selects another perspective, create or resume that perspective's independent Module 03 outline run.
+1. save all 3–5 perspectives so their SQLite logical branch records exist;
+2. render the candidate scores and rationales for audit;
+3. when `module02-next` returns `select_best_perspective`, run `select-best-perspective --module02-run-id <id>`;
+4. accept the Python-weighted highest-scoring perspective, persist its selection rationale, and create or resume its Module 03 outline run;
+5. load or read `review-outline-design` and continue immediately with `module03-next`;
+6. keep the unselected logical branches as audit records. Compatibility commands may reopen them only when explicitly requested outside the normal automatic workflow.
 
-Logical perspective branches are always sufficient for selection reconstruction. Do not claim a real Session fork exists unless a real Session ID was attached.
+Do not present a perspective-selection question or wait for user input. Do not claim a real Session fork exists unless a real Session ID was attached.
 
-The parent stays at status `perspectives_ready` and acts as the reusable perspective-selection hub.
+The Module 02 run remains at `perspectives_ready` as the auditable source of all candidates and their scores. The selected branch alone proceeds automatically to Module 03.
 
-Module 02 MUST NOT draft review prose, generate a manuscript, create the detailed outline itself, produce figures, or export Word/LaTeX. Selecting a perspective authorizes only a handoff to that perspective's Module 03 outline run.
+Module 02 MUST NOT draft review prose, generate a manuscript, create the detailed outline itself, produce figures, or export Word/LaTeX. The persisted Agent selection authorizes only the handoff to Module 03 outline design.

@@ -138,15 +138,15 @@ def policy_for(runtime: RuntimeName, project_root: Path, confidence: str, eviden
         "module02_skill": str((skill_root / "review-landscape-analysis" / "SKILL.md").resolve()),
         "module03_skill": str((skill_root / "review-outline-design" / "SKILL.md").resolve()),
         "module04_skill": str((skill_root / "review-outline-export" / "SKILL.md").resolve()),
-        "selection_terminal_message": "Start or resume the selected Module 03 outline run.",
-        "module01_completion_gate": "Repeat review-harness module01-next after every persisted step until the complete report decision.",
-        "module02_completion_gate": "Repeat review-harness module02-next after every persisted step until perspective selection.",
-        "strict_boundary": "Module 01/02 do not draft; Module 03 enforces and freezes a granular outline; Module 04 writes one coherent approximately 15,000-character Markdown review and ends the MVP.",
+        "selection_terminal_message": "Automatically start or resume Module 03 for the highest-scoring perspective.",
+        "module01_completion_gate": "Repeat review-harness module01-next after every persisted step through the Agent continue-or-stop decision.",
+        "module02_completion_gate": "Repeat review-harness module02-next after every persisted step through automatic perspective selection and Module 03 startup.",
+        "strict_boundary": "Module 01/02 do not draft; Module 03 self-evaluates and freezes a granular outline; Module 04 writes one coherent approximately 15,000-character Markdown review and ends the MVP.",
     }
     if runtime == RuntimeName.DEEPSEEK_HARNESS:
         return RuntimePolicy(
             **common,
-            decision_interaction="numbered plain text: 1.继续 / 2.结束; wait for explicit reply",
+            decision_interaction="Agent-autonomous topic, perspective, and outline decisions; no user prompt",
             module02_orchestration="DeepSeek Harness Workflow and bounded subagents",
             perspective_branches="create_review_perspective_branches real Session fork",
             supports_real_chat_forks=True,
@@ -154,7 +154,7 @@ def policy_for(runtime: RuntimeName, project_root: Path, confidence: str, eviden
     if runtime == RuntimeName.KIRO_CREW:
         return RuntimePolicy(
             **common,
-            decision_interaction="numbered plain text: 1.继续 / 2.结束; wait for explicit reply",
+            decision_interaction="Agent-autonomous topic, perspective, and outline decisions; no user prompt",
             module02_orchestration="Python core; root agent or bounded workflow_run/spawn_run when justified",
             perspective_branches="SQLite logical branches; use visible peer sessions only when session tools are mounted",
             supports_real_chat_forks=False,
@@ -162,14 +162,14 @@ def policy_for(runtime: RuntimeName, project_root: Path, confidence: str, eviden
     if runtime == RuntimeName.CODEX:
         return RuntimePolicy(
             **common,
-            decision_interaction="numbered plain text: 1.继续 / 2.结束; wait for explicit reply",
+            decision_interaction="Agent-autonomous topic, perspective, and outline decisions; no user prompt",
             module02_orchestration="Python core with bounded local batches; no DeepSeek Workflow dependency",
             perspective_branches="SQLite logical branches with reconstructable perspective selection",
             supports_real_chat_forks=False,
         )
     return RuntimePolicy(
         **common,
-        decision_interaction="plain-text numbered single-select 继续/结束; stop until explicit reply",
+        decision_interaction="Agent-autonomous topic, perspective, and outline decisions; no user prompt",
         module02_orchestration="Python core only",
         perspective_branches="SQLite logical branches only",
         supports_real_chat_forks=False,

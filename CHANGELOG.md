@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.12.0 - 2026-11-09
+
+- Replaced the Module 01 user Continue/End prompt with an auditable Agent recommendation that automatically continues or stops.
+- Added 0–100 differentiation, completeness, and maturity scores for Module 02 perspectives, plus deterministic weighted automatic selection.
+- Replaced Module 03 user feedback with Agent self-evaluation, immutable revision cycles, automatic outline freezing, and immediate Module 04 startup.
+- Added a globally discoverable Codex Skill entrypoint for starting or resuming Review Harness from any workspace.
+- Added a bounded installation resolver that locates the editable project without scanning the home directory or reading credentials.
+- Updated the Codex installers to install and safely refresh the managed global Skill.
+- Fixed global Skill discovery when Codex uses a different Python environment by writing a non-secret project-root pointer.
+- Added a root-forcing Codex runner and an explicit end-to-end completion contract so commands cannot silently persist state in the caller workspace or stop at a progress-only checkpoint.
+- Added `review_candidate` recovery so reviews found during research comparison are atomically moved into review screening, removed from the research set, and incorporated before perspective selection.
+
 ## 0.11.0 - 2026-11-04
 
 - Added the Module 03 granularity gate: every non-introduction/non-conclusion top-level section requires at least two second-level sections, and method/mechanism sections require third-level structure.

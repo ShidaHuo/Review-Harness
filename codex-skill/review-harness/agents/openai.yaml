@@ -1,0 +1,6 @@
+interface:
+  display_name: "Review Harness"
+  short_description: "Run the staged scientific literature-review workflow"
+  default_prompt: "Use $review-harness to start a scientific review for my topic."
+policy:
+  allow_implicit_invocation: true

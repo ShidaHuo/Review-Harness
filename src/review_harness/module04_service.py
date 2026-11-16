@@ -92,7 +92,7 @@ def start_module04_manuscript(
     init_module04_schema(db_path)
     run = get_module03_run(db_path, module03_run_id)
     if run["status"] != "outline_approved":
-        raise PermissionError("Module 04 requires an explicitly approved Module 03 outline")
+        raise PermissionError("Module 04 requires an Agent-approved Module 03 outline")
     latest = latest_outline(db_path, module03_run_id)
     if latest is None:
         raise ValueError("Module 04 requires a persisted approved outline")

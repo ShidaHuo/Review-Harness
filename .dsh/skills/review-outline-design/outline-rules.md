@@ -37,9 +37,9 @@ A heading list alone is invalid.
 ## Iteration
 
 - Each revision creates a new immutable version.
-- Preserve history and the exact user feedback that requested revision.
+- Preserve history and the exact Agent evaluation that requested revision.
 - Do not silently broaden the scope while revising.
-- Approval freezes the latest version only.
+- Agent approval freezes the latest version only.
 
 ## Prohibited outputs
 

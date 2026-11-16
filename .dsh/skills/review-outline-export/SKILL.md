@@ -1,11 +1,11 @@
 ---
 name: review-manuscript-writing
 extension: .md
-version: "0.11"
+version: "0.12"
 description: Write one coherent approximately 15,000-Chinese-character review directly from the frozen Module 03 outline and save it as Markdown.
-whenToUse: Use automatically after the user selects “满意，冻结大纲” in Module 03.
+whenToUse: Use automatically after Module 03 self-evaluation approves and freezes its latest outline.
 metadata:
-  version: "0.11"
+  version: "0.12"
 user-invocable: true
 ---
 
@@ -17,7 +17,7 @@ Module 04 replaces section-by-section generation and the former Module 05 self-r
 
 ## Entry gate
 
-Module 04 requires a Module 03 run at `outline_approved`, the latest frozen outline, the selected perspective, and persisted Module 02 evidence. Do not write before explicit outline approval.
+Module 04 requires a Module 03 run at `outline_approved`, the latest Agent-frozen outline, the selected perspective, and persisted Module 02 evidence. Do not write before the automatic outline quality gate passes.
 
 ## Direct writing action
 

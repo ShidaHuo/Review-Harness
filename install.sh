@@ -14,6 +14,27 @@ else
   "$PYTHON_BIN" "$PROJECT_ROOT/runtime_adapter.py" --runtime "$RUNTIME" --compact
 fi
 
+if [ "$RUNTIME" = "codex" ]; then
+  CODEX_HOME_DIR=${CODEX_HOME:-"$HOME/.codex"}
+  CODEX_SKILL_SOURCE="$PROJECT_ROOT/codex-skill/review-harness"
+  CODEX_SKILL_DESTINATION="$CODEX_HOME_DIR/skills/review-harness"
+  MANAGED_MARKER="$CODEX_SKILL_DESTINATION/.review-harness-managed"
+
+  if [ ! -d "$CODEX_SKILL_SOURCE" ]; then
+    printf '%s\n' "Bundled Codex Skill was not found: $CODEX_SKILL_SOURCE" >&2
+    exit 1
+  fi
+  if [ -d "$CODEX_SKILL_DESTINATION" ] && [ ! -f "$MANAGED_MARKER" ]; then
+    printf '%s\n' "Refusing to overwrite an unmanaged Codex Skill: $CODEX_SKILL_DESTINATION" >&2
+    exit 1
+  fi
+
+  mkdir -p "$CODEX_SKILL_DESTINATION"
+  cp -R "$CODEX_SKILL_SOURCE/." "$CODEX_SKILL_DESTINATION/"
+  printf '%s\n' "$PROJECT_ROOT" > "$CODEX_SKILL_DESTINATION/project-root.txt"
+  printf '%s\n' "Installed global Codex Skill: $CODEX_SKILL_DESTINATION"
+fi
+
 if [ "${INSTALL_DSH_PLUGIN:-0}" = "1" ]; then
   DSH_BIN=${DSH_BIN:-dsh}
   DSH_PROFILE=${DSH_PROFILE:-desktop}
@@ -31,4 +52,8 @@ else
   printf '%s\n' "Create OPENALEX_API_KEY.txt with your own one-line key, or set OPENALEX_API_KEY."
 fi
 
-printf '%s\n' "Installation complete. Open this repository as the workspace in your supported agent host."
+if [ "$RUNTIME" = "codex" ]; then
+  printf '%s\n' 'Installation complete. Restart Codex, then invoke $review-harness from any workspace.'
+else
+  printf '%s\n' "Installation complete. Open this repository as the workspace in your supported agent host."
+fi

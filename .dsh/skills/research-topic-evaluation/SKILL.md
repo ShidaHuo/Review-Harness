@@ -3,7 +3,7 @@ name: research-topic-evaluation
 description: Produce a lightweight two-year research-paper snapshot for deciding whether to continue with a scientific review topic.
 whenToUse: Use when the user asks to write, prepare, plan, or assess a literature review around a scientific topic.
 metadata:
-  version: "0.11"
+  version: "0.12"
 user-invocable: true
 ---
 
@@ -11,7 +11,7 @@ user-invocable: true
 
 ## Purpose
 
-Module 01 is a concise topic pre-assessment. It retrieves original research papers at two topic levels, summarizes the field briefly, displays the result, and then asks whether to continue.
+Module 01 is a concise topic pre-assessment. It retrieves original research papers at two topic levels, summarizes the field briefly, displays the result, and makes an auditable Agent decision to continue or stop without asking the user.
 
 Before this Skill, run `python runtime_adapter.py` and follow its interaction policy. DeepSeek Harness loads this file as a native Skill; Kiro Crew and Codex may read the same file directly. The scientific workflow and boundaries are identical in every runtime.
 
@@ -23,9 +23,11 @@ After creating or resuming Module 01, call `module01-next --run-id <id>` after e
 
 - `search_literature`: execute every returned frozen query id.
 - `screen_papers`: export with `export-module01-papers`, classify every pending title/abstract in batches of about 25, import all labels, then continue.
-- `synthesize_report_and_collect_decision`: synthesize and display the complete five-section report, then wait for the numbered decision.
-- `start_module02`: transition after an approved decision.
-- `module01_complete`: stop after rejection.
+
+For each screening batch, import a JSON object with a `papers` array; each item has `paper_id`, `label` (`direct`, `technical`, `excluded`, or `uncertain`), `confidence` (`low`, `medium`, or `high`), `reason`, and `actor`. After each import call `module01-next` and continue with any remaining null `relevance_label` records. The number of pending records is not a stopping condition.
+- `synthesize_report_and_decide`: synthesize and display the complete five-section report, assess research heat, academic impact, maturity, evidence sufficiency, and review-writing value, then persist the Agent decision with `save-agent-decision`.
+- `start_module02`: transition immediately after an Agent `recommended` decision.
+- `module01_complete`: stop after any other final recommendation.
 
 A 50-record cap is a report limitation, not a reason to skip semantic screening. Provider failure may stop only after its checkpoint is persisted.
 
@@ -89,16 +91,14 @@ Do not query or report CAS partitions.
 
 Render `report-template.md` directly in the conversation before any decision tool call. Normal length is 800–1200 Chinese characters excluding compact tables. Do not include review statistics, existing-review lists, query logs, API debugging, audit narratives, or appendices.
 
-## Step 6: Ask for the decision
+## Step 6: Make the Agent decision
 
-After the report is visible, every runtime must present the same numbered plain-text single-select prompt with exactly:
+After the complete report is visible, the root Agent makes one final recommendation and records a concrete rationale:
 
-1. 继续
-2. 结束
+- `recommended`: the topic has enough coherent recent evidence, identifiable technical routes or debates, and review-writing value; run `save-agent-decision --recommendation recommended --rationale "<reason>"` and continue immediately to Module 02.
+- `reframe_required`, `insufficient_evidence`, or `not_recommended`: the current topic should not continue; save that recommendation and rationale, state briefly that the workflow ended, and stop.
 
-Stop until the user replies with `1`/`继续` or `2`/`结束`. Do not call a question-card tool or custom decision tool and do not add another option. Other text does not approve the topic.
-
-Save `approved` only for “继续” and `rejected` only for “结束”.
+Do not ask the user to choose Continue/End. Do not use a question card or numbered decision prompt. Provider failure is a recoverable checkpoint, not an automatic negative scientific judgment.
 
 ## Output rules
 
@@ -107,4 +107,4 @@ Save `approved` only for “继续” and `rejected` only for “结束”.
 - Retrieval counts are not semantic inclusion counts.
 - Nature Index is contextual, not an automatic quality gate.
 - Missing values remain missing.
-- Do not start Module 02 before explicit approval.
+- Do not start Module 02 before a persisted Agent `recommended` decision.

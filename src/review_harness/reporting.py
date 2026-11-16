@@ -147,11 +147,11 @@ def render_report(db_path: Path, run_id: str, output_directory: Path) -> Path:
 - 综述写作价值：暂无法判断
 - **综合建议：`insufficient_evidence`，完成轻量语义筛选和 Nature Index 核验后更新。**
 
-## 05｜用户决策
+## 05｜Agent 自动决策
 
-是否继续开展该主题的综述撰写？
-
-报告完整显示后，根Agent使用编号纯文本并等待用户明确回复：`1. 继续`或`2. 结束`。
+- 当前状态：等待根Agent完成综合判断并持久化决定。
+- 自动规则：`recommended`立即进入Module 02；`reframe_required`、`insufficient_evidence`或`not_recommended`结束流程。
+- 本模块不再向用户询问“继续/结束”。
 """
 
     output_directory.mkdir(parents=True, exist_ok=True)

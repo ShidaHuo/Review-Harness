@@ -123,19 +123,17 @@ def build_outline_markdown(
 """
         )
 
-    feedback = ""
+    evaluation = ""
     if include_feedback_prompt:
-        feedback = """
-## 用户反馈
+        evaluation = """
+## Agent自检
 
-请回复编号：
+Agent必须立即检查当前版本的视角覆盖、与已有综述的差异、层级完整性、证据支撑、章节平衡、逻辑递进和过渡：
 
-1. 满意，冻结大纲
-2. 继续修改
+- 若发现具体缺陷，保存`revise`及明确修改理由，生成新的不可变版本并再次自检。
+- 若全部质量门通过，保存`approved`及通过理由，冻结当前版本并立即进入Module 04。
 
-如果选择“继续修改”，请说明需要增加、删除、合并、拆分、调整顺序或改变重点的具体内容。Agent必须基于当前版本生成新版本，不能覆盖历史版本。
-
-Module 03当前只设计和迭代大纲，不撰写摘要、引言、章节正文、参考文献稿，不生成图表、Word或LaTeX。
+Module 03不等待用户反馈，也不撰写摘要、引言、章节正文或参考文献稿，不生成图表、Word或LaTeX。
 """
 
     content = f"""# {outline['candidate_title']}
@@ -154,7 +152,7 @@ Module 03当前只设计和迭代大纲，不撰写摘要、引言、章节正�
 
 ## 分级写作大纲
 
-{''.join(sections)}{feedback}"""
+{''.join(sections)}{evaluation}"""
     return content, int(latest["version"])
 
 

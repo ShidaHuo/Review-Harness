@@ -53,8 +53,9 @@ if ($LASTEXITCODE -ne 0 -or $keyStatus.Trim() -ne "configured") {
 
 Write-Host ""
 Write-Host "=== Setup complete ===" -ForegroundColor Green
-Write-Host "1. Open this folder in Codex: $ProjectRoot"
-Write-Host "2. Start a new Codex chat."
-Write-Host "3. Enter a review request for your scientific topic."
+Write-Host "1. Restart Codex so it discovers the newly installed global Skill."
+Write-Host "2. Open any workspace and invoke `$review-harness."
+Write-Host "3. Enter the scientific review topic you want to assess."
 Write-Host ""
+Write-Host "Review Harness state and outputs remain under: $ProjectRoot"
 Write-Host "Do not paste OpenAlex or institution credentials into Codex chat."

@@ -7,7 +7,14 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
-from .models import MAX_TOPIC_SEARCHES, SEARCH_QUERY_LIMITS, new_id, utc_now
+from .models import (
+    MAX_TOPIC_SEARCHES,
+    SEARCH_QUERY_LIMITS,
+    VALID_DECISIONS,
+    VALID_RECOMMENDATIONS,
+    new_id,
+    utc_now,
+)
 from .query_plans import (
     canonicalize_query_plan,
     normalize_topic_key,
@@ -106,6 +113,7 @@ CREATE TABLE IF NOT EXISTS decisions (
     topic_run_id TEXT NOT NULL REFERENCES topic_runs(id),
     agent_recommendation TEXT NOT NULL,
     user_decision TEXT NOT NULL,
+    decision_actor TEXT NOT NULL DEFAULT 'agent',
     module_02_permitted INTEGER NOT NULL,
     notes TEXT,
     decided_at TEXT NOT NULL
@@ -145,6 +153,13 @@ def init_db(db_path: Path) -> None:
         }
         if "query_id" not in search_columns:
             connection.execute("ALTER TABLE search_runs ADD COLUMN query_id TEXT")
+        decision_columns = {
+            row["name"] for row in connection.execute("PRAGMA table_info(decisions)")
+        }
+        if "decision_actor" not in decision_columns:
+            connection.execute(
+                "ALTER TABLE decisions ADD COLUMN decision_actor TEXT NOT NULL DEFAULT 'user'"
+            )
 
         # Seed one canonical plan per existing topic without rewriting historical runs.
         rows = connection.execute(
@@ -188,7 +203,7 @@ def create_or_resume_topic_run(
     db_path: Path,
     topic: str,
     profile: dict[str, Any],
-    skill_version: str = "0.7.3",
+    skill_version: str = "0.12.0",
 ) -> tuple[str, bool]:
     """Reuse the newest unfinished run for the same normalized topic."""
     init_db(db_path)
@@ -211,7 +226,7 @@ def create_or_resume_topic_run(
     return create_topic_run(db_path, topic, profile, skill_version), False
 
 
-def create_topic_run(db_path: Path, topic: str, profile: dict[str, Any], skill_version: str = "0.7.3") -> str:
+def create_topic_run(db_path: Path, topic: str, profile: dict[str, Any], skill_version: str = "0.12.0") -> str:
     init_db(db_path)
     topic_key = normalize_topic_key(topic, profile)
     supplied_plan = canonicalize_query_plan(profile.get("queries", []))
@@ -449,17 +464,38 @@ def status_for_run(db_path: Path, run_id: str) -> dict[str, Any]:
             "SELECT * FROM decisions WHERE topic_run_id = ? ORDER BY decided_at DESC LIMIT 1",
             (run_id,),
         ).fetchone()
+    latest_decision = dict(decision) if decision else None
+    if latest_decision is not None:
+        latest_decision["decision"] = latest_decision["user_decision"]
+        latest_decision.setdefault("decision_actor", "user")
     return {
         "run": run,
         "searches": [dict(row) for row in search_rows],
         "paper_counts_by_retrieval_scope": {row["retrieval_scope"]: row["paper_count"] for row in scope_rows},
         "paper_counts_by_relevance": {row["relevance_label"]: row["paper_count"] for row in relevance_rows},
-        "latest_decision": dict(decision) if decision else None,
+        "latest_decision": latest_decision,
     }
 
 
-def save_decision(db_path: Path, run_id: str, decision: str, notes: str | None = None) -> dict[str, Any]:
+def save_decision(
+    db_path: Path,
+    run_id: str,
+    decision: str,
+    notes: str | None = None,
+    *,
+    actor: str = "user",
+    agent_recommendation: str | None = None,
+) -> dict[str, Any]:
     run = get_topic_run(db_path, run_id)
+    if decision not in VALID_DECISIONS:
+        raise ValueError(f"Invalid Module 01 decision: {decision}")
+    if actor not in {"agent", "user"}:
+        raise ValueError("Module 01 decision actor must be agent or user")
+    recommendation = agent_recommendation or run["agent_recommendation"]
+    if recommendation not in VALID_RECOMMENDATIONS:
+        raise ValueError(f"Invalid Module 01 recommendation: {recommendation}")
+    if actor == "agent" and recommendation == "pending":
+        raise ValueError("An autonomous Module 01 decision requires a final recommendation")
     if decision == "approved":
         planned = run["profile"].get("queries", [])
         with connect(db_path) as connection:
@@ -487,10 +523,14 @@ def save_decision(db_path: Path, run_id: str, decision: str, notes: str | None =
             raise ValueError(f"Cannot approve Module 01: {pending} papers remain semantically unclassified")
     decided_at = utc_now()
     record = {
+        "schema_version": "0.1.0",
         "id": new_id("decision"),
+        "run_id": run_id,
         "topic_run_id": run_id,
-        "agent_recommendation": run["agent_recommendation"],
+        "agent_recommendation": recommendation,
+        "decision": decision,
         "user_decision": decision,
+        "decision_actor": actor,
         "module_02_permitted": decision == "approved",
         "notes": notes,
         "decided_at": decided_at,
@@ -500,24 +540,64 @@ def save_decision(db_path: Path, run_id: str, decision: str, notes: str | None =
             """
             INSERT INTO decisions(
                 id, topic_run_id, agent_recommendation, user_decision,
-                module_02_permitted, notes, decided_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                decision_actor, module_02_permitted, notes, decided_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 record["id"],
                 record["topic_run_id"],
                 record["agent_recommendation"],
                 record["user_decision"],
+                record["decision_actor"],
                 int(record["module_02_permitted"]),
                 record["notes"],
                 record["decided_at"],
             ),
         )
         connection.execute(
-            "UPDATE topic_runs SET status = ?, updated_at = ? WHERE id = ?",
-            ("approved" if decision == "approved" else decision, decided_at, run_id),
+            """
+            UPDATE topic_runs
+            SET status = ?, agent_recommendation = ?, updated_at = ?
+            WHERE id = ?
+            """,
+            (
+                "approved" if decision == "approved" else decision,
+                recommendation,
+                decided_at,
+                run_id,
+            ),
         )
     return record
+
+
+def save_agent_decision(
+    db_path: Path,
+    run_id: str,
+    recommendation: str,
+    rationale: str,
+) -> dict[str, Any]:
+    """Persist the Module 01 Agent gate and map it to continue or stop."""
+    if recommendation == "pending":
+        raise ValueError("The Agent must make a final Module 01 recommendation")
+    if recommendation not in VALID_RECOMMENDATIONS:
+        raise ValueError(f"Invalid Module 01 recommendation: {recommendation}")
+    normalized_rationale = rationale.strip()
+    if not normalized_rationale:
+        raise ValueError("The autonomous Module 01 decision requires a rationale")
+    next_action = module01_next_action(db_path, run_id)
+    if next_action["action"] != "synthesize_report_and_decide":
+        raise ValueError(
+            "The Agent may decide Module 01 only after retrieval and semantic screening are complete"
+        )
+    decision = "approved" if recommendation == "recommended" else "rejected"
+    return save_decision(
+        db_path,
+        run_id,
+        decision,
+        normalized_rationale,
+        actor="agent",
+        agent_recommendation=recommendation,
+    )
 
 
 def save_module01_relevance(db_path: Path, run_id: str, papers: list[dict[str, Any]]) -> int:
@@ -586,25 +666,27 @@ def export_module01_papers(db_path: Path, run_id: str) -> list[dict[str, Any]]:
     return results
 
 
-def module01_next_action(db_path: Path, run_id: str) -> dict[str, Any]:
+def _module01_next_action(db_path: Path, run_id: str) -> dict[str, Any]:
     """Return the next mandatory Module 01 step for every supported runtime."""
     status = status_for_run(db_path, run_id)
     run = status["run"]
     decision = status.get("latest_decision")
     if decision is not None:
-        if decision["user_decision"] == "approved":
+        if decision["decision"] == "approved":
             return {
                 "run_id": run_id,
                 "action": "start_module02",
                 "blocking_user_input": False,
                 "terminal": False,
+                "decision_actor": decision["decision_actor"],
             }
         return {
             "run_id": run_id,
             "action": "module01_complete",
             "blocking_user_input": False,
             "terminal": True,
-            "decision": decision["user_decision"],
+            "decision": decision["decision"],
+            "decision_actor": decision["decision_actor"],
         }
 
     planned = run["profile"].get("queries", [])
@@ -648,6 +730,11 @@ def module01_next_action(db_path: Path, run_id: str) -> dict[str, Any]:
             "paper_count": len(pending),
             "recommended_batch_size": 25,
             "export_command": f"export-module01-papers --run-id {run_id} --output <path>",
+            "continuation_instruction": (
+                "Export papers, classify every record with null relevance_label in bounded batches, "
+                "import each batch with import-module01-relevance, and call module01-next again. "
+                "Do not end the task while screening remains pending."
+            ),
         }
 
     failed_or_capped = [
@@ -662,10 +749,25 @@ def module01_next_action(db_path: Path, run_id: str) -> dict[str, Any]:
     ]
     return {
         "run_id": run_id,
-        "action": "synthesize_report_and_collect_decision",
-        "blocking_user_input": True,
+        "action": "synthesize_report_and_decide",
+        "blocking_user_input": False,
         "terminal": False,
         "paper_count": len(papers),
         "retrieval_limitations": failed_or_capped,
-        "decision_prompt": ["1. 继续", "2. 结束"],
+        "recommendations": [
+            "recommended",
+            "reframe_required",
+            "insufficient_evidence",
+            "not_recommended",
+        ],
+        "decision_rule": (
+            "recommended continues to Module 02; every other final recommendation ends the workflow"
+        ),
     }
+
+
+def module01_next_action(db_path: Path, run_id: str) -> dict[str, Any]:
+    """Return the next step and an explicit continuation flag for direct callers."""
+    action = _module01_next_action(db_path, run_id)
+    action["must_continue"] = not action["blocking_user_input"] and not action["terminal"]
+    return action

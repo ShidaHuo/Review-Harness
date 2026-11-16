@@ -6,12 +6,13 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from .models import VALID_DECISIONS
+from .models import VALID_DECISIONS, VALID_RECOMMENDATIONS
 from .module02_reporting import render_module02_report, render_module02_summary
 from .module03_reporting import render_outline
 from .module03_storage import (
     get_module03_run,
     module03_next_action,
+    record_outline_evaluation,
     record_outline_feedback,
     save_outline_version,
     start_module03_outline,
@@ -37,6 +38,8 @@ from .module02_storage import (
     list_perspective_branches,
     module02_next_action,
     plan_module02_research_queries,
+    promote_research_review,
+    promote_research_reviews,
     rebuild_perspective_selection,
     save_fulltext_access,
     save_perspectives,
@@ -44,6 +47,7 @@ from .module02_storage import (
     save_review_analyses,
     save_review_screening,
     save_trend_claims,
+    select_best_perspective_branch,
     select_perspective_branch,
 )
 from .reference_storage import (
@@ -57,6 +61,7 @@ from .storage import (
     export_module01_papers,
     init_db,
     module01_next_action,
+    save_agent_decision,
     save_decision,
     save_module01_relevance,
     status_for_run,
@@ -163,7 +168,20 @@ def build_parser() -> argparse.ArgumentParser:
     report.add_argument("--run-id", required=True)
     report.add_argument("--output-directory", type=Path, default=DEFAULT_OUTPUTS)
 
-    decision = subparsers.add_parser("save-decision", help="Save the explicit Module 01 user decision")
+    agent_decision = subparsers.add_parser(
+        "save-agent-decision", help="Persist the autonomous Module 01 continue-or-stop decision"
+    )
+    agent_decision.add_argument("--run-id", required=True)
+    agent_decision.add_argument(
+        "--recommendation",
+        required=True,
+        choices=sorted(VALID_RECOMMENDATIONS - {"pending"}),
+    )
+    agent_decision.add_argument("--rationale", required=True)
+
+    decision = subparsers.add_parser(
+        "save-decision", help="Persist a legacy explicit Module 01 decision"
+    )
     decision.add_argument("--run-id", required=True)
     decision.add_argument("--decision", required=True, choices=sorted(VALID_DECISIONS))
     decision.add_argument("--notes")
@@ -177,6 +195,22 @@ def build_parser() -> argparse.ArgumentParser:
     search_reviews.add_argument("--per-page", type=int, default=100, choices=range(1, 101), metavar="1..100")
     search_reviews.add_argument("--max-pages", type=int, default=10, choices=range(1, 11), metavar="1..10")
     search_reviews.add_argument("--raw-root", type=Path, default=DEFAULT_RAW_ROOT)
+
+    promote_reviews = subparsers.add_parser(
+        "promote-research-reviews",
+        help="Move missed reviews from research comparison back into review screening",
+    )
+    promote_reviews.add_argument("--module02-run-id", required=True)
+    promote_reviews.add_argument("--input", type=Path, required=True)
+
+    promote_review = subparsers.add_parser(
+        "promote-research-review",
+        help="Compatibility command for moving one missed review back into screening",
+    )
+    promote_review.add_argument("--module02-run-id", required=True)
+    promote_identifier = promote_review.add_mutually_exclusive_group(required=True)
+    promote_identifier.add_argument("--paper-id")
+    promote_identifier.add_argument("--doi")
 
     export_review_parser = subparsers.add_parser("export-reviews", help="Export review records for analysis")
     export_review_parser.add_argument("--module02-run-id", required=True)
@@ -262,7 +296,15 @@ def build_parser() -> argparse.ArgumentParser:
     attach_branches.add_argument("--module02-run-id", required=True)
     attach_branches.add_argument("--input", type=Path, required=True)
 
-    select_branch = subparsers.add_parser("select-perspective", help="Select one existing branch for Module 03")
+    select_best = subparsers.add_parser(
+        "select-best-perspective",
+        help="Automatically select the strongest perspective and start Module 03",
+    )
+    select_best.add_argument("--module02-run-id", required=True)
+
+    select_branch = subparsers.add_parser(
+        "select-perspective", help="Compatibility command for selecting one existing branch"
+    )
     select_branch.add_argument("--module02-run-id", required=True)
     select_branch.add_argument("--rank", type=int, required=True, choices=range(1, 6), metavar="1..5")
 
@@ -291,7 +333,18 @@ def build_parser() -> argparse.ArgumentParser:
     import_outline.add_argument("--input", type=Path, required=True)
     import_outline.add_argument("--actor", default="root-agent")
 
-    outline_feedback = subparsers.add_parser("save-outline-feedback", help="Approve or request outline revision")
+    outline_evaluation = subparsers.add_parser(
+        "save-outline-evaluation",
+        help="Persist the Agent self-review and approve or revise the latest outline",
+    )
+    outline_evaluation.add_argument("--module03-run-id", required=True)
+    outline_evaluation.add_argument("--decision", required=True, choices=["approved", "revise"])
+    outline_evaluation.add_argument("--rationale", required=True)
+    outline_evaluation.add_argument("--target-characters", type=int, default=15000)
+
+    outline_feedback = subparsers.add_parser(
+        "save-outline-feedback", help="Compatibility command for historical user feedback"
+    )
     outline_feedback.add_argument("--module03-run-id", required=True)
     outline_feedback.add_argument("--decision", required=True, choices=["approved", "revise"])
     outline_feedback.add_argument("--feedback")
@@ -403,6 +456,16 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "render-report":
             path = render_report(args.db, args.run_id, args.output_directory)
             _print_json({"report": str(path.resolve()), "status": "rendered"})
+        elif args.command == "save-agent-decision":
+            result = save_agent_decision(
+                args.db, args.run_id, args.recommendation, args.rationale
+            )
+            result["next_action"] = module01_next_action(args.db, args.run_id)
+            result["must_continue"] = (
+                not result["next_action"]["blocking_user_input"]
+                and not result["next_action"]["terminal"]
+            )
+            _print_json(result)
         elif args.command == "save-decision":
             result = save_decision(args.db, args.run_id, args.decision, args.notes)
             result["next_action"] = module01_next_action(args.db, args.run_id)
@@ -418,6 +481,26 @@ def main(argv: list[str] | None = None) -> int:
                 per_page=args.per_page,
                 max_pages=args.max_pages,
             ))
+        elif args.command == "promote-research-reviews":
+            payload = _json_file(args.input)
+            result = promote_research_reviews(
+                args.db, args.module02_run_id, payload.get("reviews", [])
+            )
+            next_action = module02_next_action(args.db, args.module02_run_id)
+            result["next_action"] = next_action
+            result["must_continue"] = not next_action["blocking_user_input"]
+            _print_json(result)
+        elif args.command == "promote-research-review":
+            result = promote_research_review(
+                args.db,
+                args.module02_run_id,
+                args.paper_id,
+                doi=args.doi,
+            )
+            next_action = module02_next_action(args.db, args.module02_run_id)
+            result["next_action"] = next_action
+            result["must_continue"] = not next_action["blocking_user_input"]
+            _print_json(result)
         elif args.command == "export-reviews":
             path = _write_json_file(args.output, {
                 "schema_version": "0.1.0",
@@ -498,12 +581,22 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "import-research-comparison":
             payload = _json_file(args.input)
             updated = save_research_comparisons(args.db, args.module02_run_id, payload.get("papers", []))
-            _print_json({"updated_papers": updated})
+            next_action = module02_next_action(args.db, args.module02_run_id)
+            _print_json({
+                "updated_papers": updated,
+                "next_action": next_action,
+                "must_continue": not next_action["blocking_user_input"] and not next_action.get("terminal", False),
+            })
         elif args.command == "import-review-perspectives":
             payload = _json_file(args.input)
             perspectives = payload.get("perspectives", [])
             save_perspectives(args.db, args.module02_run_id, perspectives)
-            _print_json({"saved_perspectives": len(perspectives)})
+            next_action = module02_next_action(args.db, args.module02_run_id)
+            _print_json({
+                "saved_perspectives": len(perspectives),
+                "next_action": next_action,
+                "must_continue": not next_action["blocking_user_input"] and not next_action.get("terminal", False),
+            })
         elif args.command == "list-perspective-branches":
             _print_json({
                 "module02_run_id": args.module02_run_id,
@@ -515,6 +608,15 @@ def main(argv: list[str] | None = None) -> int:
             payload = _json_file(args.input)
             updated = attach_perspective_sessions(args.db, args.module02_run_id, payload.get("branches", []))
             _print_json({"attached_branches": updated})
+        elif args.command == "select-best-perspective":
+            selection = select_best_perspective_branch(args.db, args.module02_run_id)
+            rank = selection["selected_rank"]
+            module03_run_id = start_module03_outline(args.db, args.module02_run_id, rank)
+            selection["module03_run_id"] = module03_run_id
+            selection["module03_status"] = get_module03_run(args.db, module03_run_id)["status"]
+            selection["module03_next_action"] = module03_next_action(args.db, module03_run_id)
+            selection["must_continue"] = True
+            _print_json(selection)
         elif args.command == "select-perspective":
             selection = select_perspective_branch(args.db, args.module02_run_id, args.rank)
             module03_run_id = start_module03_outline(args.db, args.module02_run_id, args.rank)
@@ -539,7 +641,35 @@ def main(argv: list[str] | None = None) -> int:
             version = save_outline_version(
                 args.db, args.module03_run_id, payload, actor=args.actor
             )
-            _print_json({"module03_run_id": args.module03_run_id, "version": version, "status": "awaiting_outline_feedback"})
+            _print_json({
+                "module03_run_id": args.module03_run_id,
+                "version": version,
+                "status": "awaiting_outline_evaluation",
+                "next_action": module03_next_action(args.db, args.module03_run_id),
+                "must_continue": True,
+            })
+        elif args.command == "save-outline-evaluation":
+            result = record_outline_evaluation(
+                args.db,
+                args.module03_run_id,
+                args.decision,
+                args.rationale,
+            )
+            if args.decision == "approved":
+                module04_run_id = start_module04_manuscript(
+                    args.db,
+                    args.module03_run_id,
+                    args.target_characters,
+                )
+                result["module04_run_id"] = module04_run_id
+                next_action = module04_next_action(args.db, module04_run_id)
+                result["module04_next_action"] = next_action
+                result["must_continue"] = next_action["must_continue"]
+                result["task_status"] = "module04_started"
+            else:
+                result["next_action"] = module03_next_action(args.db, args.module03_run_id)
+                result["must_continue"] = True
+            _print_json(result)
         elif args.command == "save-outline-feedback":
             result = record_outline_feedback(
                 args.db,
