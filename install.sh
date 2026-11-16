@@ -25,13 +25,20 @@ if [ "$RUNTIME" = "codex" ]; then
     exit 1
   fi
   if [ -d "$CODEX_SKILL_DESTINATION" ] && [ ! -f "$MANAGED_MARKER" ]; then
-    printf '%s\n' "Refusing to overwrite an unmanaged Codex Skill: $CODEX_SKILL_DESTINATION" >&2
-    exit 1
+    if [ ! -f "$CODEX_SKILL_DESTINATION/project-root.txt" ] ||
+       [ "$(cat "$CODEX_SKILL_DESTINATION/project-root.txt")" != "$PROJECT_ROOT" ] ||
+       ! cmp -s "$CODEX_SKILL_SOURCE/SKILL.md" "$CODEX_SKILL_DESTINATION/SKILL.md" ||
+       ! cmp -s "$CODEX_SKILL_SOURCE/scripts/locate_review_harness.py" "$CODEX_SKILL_DESTINATION/scripts/locate_review_harness.py" ||
+       ! cmp -s "$CODEX_SKILL_SOURCE/scripts/run_review_harness.py" "$CODEX_SKILL_DESTINATION/scripts/run_review_harness.py"; then
+      printf '%s\n' "Refusing to overwrite an unmanaged Codex Skill: $CODEX_SKILL_DESTINATION" >&2
+      exit 1
+    fi
   fi
 
   mkdir -p "$CODEX_SKILL_DESTINATION"
   cp -R "$CODEX_SKILL_SOURCE/." "$CODEX_SKILL_DESTINATION/"
   printf '%s\n' "$PROJECT_ROOT" > "$CODEX_SKILL_DESTINATION/project-root.txt"
+  printf '%s\n' 'managed-by: Review Harness installer' > "$MANAGED_MARKER"
   printf '%s\n' "Installed global Codex Skill: $CODEX_SKILL_DESTINATION"
 fi
 

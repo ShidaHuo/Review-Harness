@@ -44,7 +44,21 @@ if ($Runtime -eq "codex") {
     New-Item -ItemType Directory -Path $codexSkillsRoot -Force | Out-Null
     if (Test-Path -LiteralPath $codexSkillDestination -PathType Container) {
         if (-not (Test-Path -LiteralPath $managedMarker -PathType Leaf)) {
-            throw "Refusing to overwrite an unmanaged Codex Skill: $codexSkillDestination"
+            # Recover only an exact, identifiable copy made by the earlier installer.
+            $pointer = Join-Path $codexSkillDestination "project-root.txt"
+            $knownCopy = (Test-Path -LiteralPath $pointer -PathType Leaf) -and ((Get-Content -LiteralPath $pointer -Raw).Trim() -eq $ProjectRoot)
+            foreach ($relative in @("SKILL.md", "scripts\locate_review_harness.py", "scripts\run_review_harness.py")) {
+                $sourceFile = Join-Path $codexSkillSource $relative
+                $targetFile = Join-Path $codexSkillDestination $relative
+                if (-not (Test-Path -LiteralPath $targetFile -PathType Leaf)) { $knownCopy = $false; break }
+                $hasher = [System.Security.Cryptography.SHA256]::Create()
+                try {
+                    $sourceHash = [Convert]::ToBase64String($hasher.ComputeHash([System.IO.File]::ReadAllBytes($sourceFile)))
+                    $targetHash = [Convert]::ToBase64String($hasher.ComputeHash([System.IO.File]::ReadAllBytes($targetFile)))
+                } finally { $hasher.Dispose() }
+                if ($sourceHash -ne $targetHash) { $knownCopy = $false; break }
+            }
+            if (-not $knownCopy) { throw "Refusing to overwrite an unmanaged Codex Skill: $codexSkillDestination" }
         }
         Get-ChildItem -LiteralPath $codexSkillSource -Force | ForEach-Object {
             Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $codexSkillDestination $_.Name) -Recurse -Force
@@ -55,6 +69,7 @@ if ($Runtime -eq "codex") {
     $projectRootPointer = Join-Path $codexSkillDestination "project-root.txt"
     $utf8WithoutBom = [System.Text.UTF8Encoding]::new($false)
     [System.IO.File]::WriteAllText($projectRootPointer, "$ProjectRoot`n", $utf8WithoutBom)
+    [System.IO.File]::WriteAllText($managedMarker, "managed-by: Review Harness installer`n", $utf8WithoutBom)
     Write-Host "Installed global Codex Skill: $codexSkillDestination"
 }
 
